@@ -4,9 +4,28 @@
   "description": "This is Large Project",
   "license": "ISC",
   "author": "Nouman Ansari",
-  "type": "commonjs",
-  "main": "index.js",
+  "type": "module",
+  "main": "nodemon index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "nodemon index.js"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.8.0",
+    "cookie": "^1.1.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "i": "^0.3.7",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.1",
+    "multer": "^2.0.2",
+    "multer-storage-cloudinary": "^4.0.0",
+    "mysql2": "^3.16.0",
+    "nodemon": "^3.1.11",
+    "npm": "^11.7.0"
   }
 }
