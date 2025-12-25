@@ -17,6 +17,6 @@ router.get("/getFlats", verifyAdminToken, getFlats);
 router.get("/paginated/list", verifyAdminToken, getFlatsWithPagination);
 router.get("/getFlatByID/:id", verifyAdminToken, getFlatById);
 router.put("/updateFlat/:id", verifyAdminToken, updateFlat);
-router.delete("/flatDelete/:id", verifyAdminToken, deactivateFlat);
+router.put("/flatDelete/:id", verifyAdminToken, deactivateFlat);
 
 export default router;
