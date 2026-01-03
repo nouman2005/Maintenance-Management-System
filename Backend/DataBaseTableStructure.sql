@@ -35,3 +35,41 @@ CREATE TABLE flats (
 
   UNIQUE (wing, flat_no)
 );
+
+-- CREATE TENANTS TABLE MYSQL MODEL
+CREATE TABLE tenants (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+
+  flat_id INT NOT NULL,
+
+  tenant_name VARCHAR(100) NOT NULL,
+  tenant_phone VARCHAR(15) NOT NULL,
+  tenant_whatsapp VARCHAR(15),
+  tenant_email VARCHAR(100),
+
+  move_in_date DATE NOT NULL,
+  move_out_date DATE,
+
+  exit_letter_submitted ENUM('yes','no') DEFAULT 'no',
+
+  status ENUM('active','inactive') DEFAULT 'active',
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (flat_id) REFERENCES flats(id)
+);
+
+-- CREATE MAINTENANCE SETTING TABLE MYSQL MODEL
+CREATE TABLE maintenance_settings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+
+  setting_key VARCHAR(50) UNIQUE NOT NULL,
+  setting_value DECIMAL(10,2) NOT NULL,
+
+  description VARCHAR(255),
+  status ENUM('active','inactive') DEFAULT 'active',
+
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP
+);
+

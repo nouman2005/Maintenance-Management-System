@@ -6,6 +6,7 @@ import morgan from "morgan";
 import ConnectDB from "./Config/db.js";
 import adminRoutes from "./Routes/adminRoutes.js";
 import flatRoutes from "./Routes/flatRoutes.js";
+import tenantRoutes from "./Routes/tenantRoutes.js";
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ app.use(morgan("dev"));
 
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/flats", flatRoutes);
+app.use("/api/v1/tenants", tenantRoutes);
 
 app.get("/", (req, res) => {
   res.send("<h1>SuccessFully Connected</h1>");

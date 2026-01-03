@@ -3,6 +3,7 @@ import { MdAddHomeWork, MdDashboard } from "react-icons/md";
 import { IoHomeOutline } from "react-icons/io5";
 import { useState } from "react";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaUsers } from "react-icons/fa";
 
 const SidebarItem = ({ icon, label, onClick }) => {
   return (
@@ -17,9 +18,14 @@ const SidebarItem = ({ icon, label, onClick }) => {
 
 function Sidebar({ setShowComponent, showSidebar, setShowSidebar }) {
   const [flatDropdownOpen, setFlatDropdownOpen] = useState(false);
+  const [tenantDropdownOpen, setTenantDropdownOpen] = useState(false);
 
   const toggleFlatDropdown = () => {
     setFlatDropdownOpen(!flatDropdownOpen);
+  };
+
+  const toggleTenantDropdown = () => {
+    setTenantDropdownOpen(!tenantDropdownOpen);
   };
   return (
     <div
@@ -73,6 +79,42 @@ function Sidebar({ setShowComponent, showSidebar, setShowSidebar }) {
                 }}
                 className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white cursor-pointer hover:scale-105 transition-all duration-300 shadow'>
                 Flats Details
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Tenant Dropdown */}
+
+        <div>
+          <div
+            onClick={toggleTenantDropdown}
+            className='flex items-center justify-between px-5 py-3 rounded-xl backdrop-blur-sm bg-white/5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow hover:shadow-lg'>
+            <div className='flex items-center gap-4'>
+              <span className='text-xl'>
+                <FaUsers />
+              </span>
+              <span className='text-base font-medium tracking-wide'>
+                Tenants
+              </span>
+            </div>
+            {tenantDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
+          </div>
+          {tenantDropdownOpen && (
+            <div className='ml-10 mt-2 flex flex-col gap-2 text-sm text-white'>
+              <div
+                onClick={() => {
+                  setShowComponent("AddTenants");
+                }}
+                className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white cursor-pointer hover:scale-105 transition-all duration-300 shadow'>
+                Add Tenants
+              </div>
+              <div
+                onClick={() => {
+                  setShowComponent("TenantsList");
+                }}
+                className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white cursor-pointer hover:scale-105 transition-all duration-300 shadow'>
+                Tenants Details
               </div>
             </div>
           )}

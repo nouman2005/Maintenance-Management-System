@@ -3,6 +3,9 @@ import Sidebar from "./Sidebar";
 import DashboardHome from "../Components/Pages/DashBoardHome";
 import AddFlats from "../Components/Pages/Flats/AddFlats";
 import FlatsDetails from "./Pages/Flats/FlatsDetails";
+import AddTenants from "./Pages/Tenants/AddTenants";
+import TenantsList from "./Pages/Tenants/TenantsList";
+import TenantsDetails from "./Pages/Tenants/TenantsDetails";
 function MaintenanceDashboard() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [showComponent, setShowComponent] = useState("Home"); // Default to Home
@@ -11,6 +14,9 @@ function MaintenanceDashboard() {
     Home: <DashboardHome />,
     AddFlats: <AddFlats />,
     FlatsDetails: <FlatsDetails />,
+    AddTenants: <AddTenants />,
+    TenantsList: <TenantsList />,
+    TenantsDetails: <TenantsDetails />,
   };
 
   return (
