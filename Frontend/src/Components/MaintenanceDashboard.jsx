@@ -6,6 +6,9 @@ import FlatsDetails from "./Pages/Flats/FlatsDetails";
 import AddTenants from "./Pages/Tenants/AddTenants";
 import TenantsList from "./Pages/Tenants/TenantsList";
 import TenantsDetails from "./Pages/Tenants/TenantsDetails";
+import AddMaintenanceSetting from "./Pages//MaintenanceSettings/AddMaintenanceSetting";
+import MaintenanceSettingList from "./Pages/MaintenanceSettings/MaintenanceSettingList";
+
 function MaintenanceDashboard() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [showComponent, setShowComponent] = useState("Home"); // Default to Home
@@ -17,6 +20,8 @@ function MaintenanceDashboard() {
     AddTenants: <AddTenants />,
     TenantsList: <TenantsList />,
     TenantsDetails: <TenantsDetails />,
+    addMaintenanceSetting: <AddMaintenanceSetting />,
+    MaintenanceSettingList: <MaintenanceSettingList />,
   };
 
   return (
