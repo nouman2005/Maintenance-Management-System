@@ -1,14 +1,60 @@
 import express from "express";
 import {
-  loginValidation,
-  registerValidation,
+  createAdmin,
+  deactivateAdmin,
+  getAdminById,
+  getAdmins,
+  updateAdmin,
+} from "../Controllers/adminController.js";
+import { verifyAccessToken } from "../Middlewares/verifyAccessToken.js";
+import { superAdminOnly } from "../Middlewares/superAdminMiddleware.js";
+import {
+  adminIdParamValidator,
+  adminListValidator,
+  createAdminValidator,
+  updateAdminValidator,
 } from "../validators/adminValidator.js";
-import { loginAdmin, registerAdmin } from "../Controllers/adminController.js";
-import { validationResult } from "express-validator";
 
 const router = express.Router();
 
-router.post("/register", registerValidation, registerAdmin);
-router.post("/login", loginValidation, loginAdmin);
+router.post(
+  "/createAdmin",
+  verifyAccessToken,
+  superAdminOnly,
+  createAdminValidator,
+  createAdmin
+);
+
+router.get(
+  "/",
+  verifyAccessToken,
+  superAdminOnly,
+  adminListValidator,
+  getAdmins
+);
+
+router.get(
+  "/:id",
+  verifyAccessToken,
+  superAdminOnly,
+  adminIdParamValidator,
+  getAdminById
+);
+
+router.put(
+  "/:id",
+  verifyAccessToken,
+  superAdminOnly,
+  updateAdminValidator,
+  updateAdmin
+);
+
+router.delete(
+  "/:id",
+  verifyAccessToken,
+  superAdminOnly,
+  adminIdParamValidator,
+  deactivateAdmin
+);
 
 export default router;

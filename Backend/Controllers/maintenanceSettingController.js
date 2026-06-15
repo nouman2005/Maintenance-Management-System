@@ -1,5 +1,8 @@
-import maintenance_settings from "../Config/db.js";
+import db from "../Config/db.js";
 import { validationResult } from "express-validator";
+import { prefixedNanoId } from "../Utils/nanoId.js";
+
+const getAdminSocietyId = (req) => req.user?.society_id;
 
 export const addMaintenanceSetting = async (req, res) => {
   const errors = validationResult(req);
@@ -8,28 +11,63 @@ export const addMaintenanceSetting = async (req, res) => {
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
-  const { setting_key, setting_value, description } = req.body;
+  const societyId = getAdminSocietyId(req);
+  const adminId = req.user.id;
+  const {
+    setting_key,
+    setting_value,
+    value_type = "fixed",
+    description,
+    effective_from,
+  } = req.body;
 
   try {
-    const [exists] = await maintenance_settings.query(
-      "SELECT id FROM maintenance_settings WHERE setting_key=?",
-      [setting_key]
-    );
-
-    if (exists.length > 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Setting already exists" });
+    if (!societyId) {
+      return res.status(403).json({
+        success: false,
+        message: "Admin society is missing. Please login again.",
+      });
     }
 
-    await maintenance_settings.query(
-      `INSERT INTO maintenance_settings
-       (setting_key, setting_value, description)
-       VALUES (?, ?, ?)`,
-      [setting_key, setting_value, description]
+    await db.beginTransaction();
+
+    await db.query(
+      `UPDATE maintenance_settings
+       SET status = 'inactive'
+       WHERE society_id = ? AND setting_key = ? AND status = 'active'`,
+      [societyId, setting_key]
     );
+
+    await db.query(
+      `INSERT INTO maintenance_settings
+       (setting_code, society_id, admin_id, setting_key, setting_value,
+        value_type, description, effective_from)
+       VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE))`,
+      [
+        prefixedNanoId("SET"),
+        societyId,
+        adminId,
+        setting_key,
+        setting_value,
+        value_type,
+        description || null,
+        effective_from || null,
+      ]
+    );
+
+    await db.commit();
+
+    return res.status(201).json({
+      success: true,
+      message:
+        setting_key === "noc_charge"
+          ? "NOC charge saved for this society"
+          : "Maintenance setting saved successfully",
+    });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    await db.rollback();
+    console.error("ADD MAINTENANCE SETTING ERROR:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
@@ -37,28 +75,48 @@ export const getAllMaintenanceSettings = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
+  const status = req.query.status || "active";
+  const societyId = getAdminSocietyId(req);
 
   try {
-    const [settings] = await maintenance_settings.query(
-      `SELECT id, setting_key, setting_value, description, status, updated_at
+    if (!societyId) {
+      return res.status(403).json({
+        success: false,
+        message: "Admin society is missing. Please login again.",
+      });
+    }
+
+    const params = [societyId, status];
+
+    const [settings] = await db.query(
+      `SELECT id, setting_code, setting_key, setting_value, value_type,
+              description, status, effective_from, effective_to, updated_at
        FROM maintenance_settings
+       WHERE society_id = ? AND status = ?
        ORDER BY updated_at DESC
        LIMIT ? OFFSET ?`,
-      [limit, offset]
+      [...params, limit, offset]
     );
 
-    const [[{ total }]] = await maintenance_settings.query(
-      "SELECT COUNT(*) as total FROM maintenance_settings"
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) AS total
+       FROM maintenance_settings
+       WHERE society_id = ? AND status = ?`,
+      params
     );
 
     return res.status(200).json({
       success: true,
-      page,
-      totalPages: Math.ceil(total / limit),
       data: settings,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (err) {
-    console.error(err);
+    console.error("GET MAINTENANCE SETTINGS ERROR:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch maintenance settings",
@@ -76,15 +134,16 @@ export const getSettingByKey = async (req, res) => {
     });
   }
 
-  const key = req.params.key.toUpperCase();
+  const key = req.params.key;
+  const societyId = getAdminSocietyId(req);
 
   try {
-    const [settings] = await maintenance_settings.query(
-      `SELECT setting_key, setting_value
+    const [settings] = await db.query(
+      `SELECT setting_key, setting_value, value_type
        FROM maintenance_settings
-       WHERE setting_key = ? AND status = 'active'
+       WHERE society_id = ? AND setting_key = ? AND status = 'active'
        LIMIT 1`,
-      [key]
+      [societyId, key]
     );
 
     if (settings.length === 0) {
@@ -99,7 +158,7 @@ export const getSettingByKey = async (req, res) => {
       data: settings[0],
     });
   } catch (err) {
-    console.error("Get Setting By Key Error:", err);
+    console.error("GET SETTING BY KEY ERROR:", err);
 
     return res.status(500).json({
       success: false,
@@ -118,7 +177,8 @@ export const updateMaintenanceSetting = async (req, res) => {
   }
 
   const id = Number(req.params.id);
-  const { setting_value, status } = req.body || {}; // 👈 SAFE
+  const societyId = getAdminSocietyId(req);
+  const { setting_value, status } = req.body || {};
 
   if (setting_value === undefined && status === undefined) {
     return res.status(400).json({
@@ -141,12 +201,12 @@ export const updateMaintenanceSetting = async (req, res) => {
       values.push(status);
     }
 
-    values.push(id);
+    values.push(id, societyId);
 
-    const [result] = await maintenance_settings.query(
+    const [result] = await db.query(
       `UPDATE maintenance_settings
        SET ${fields.join(", ")}
-       WHERE id = ?`,
+       WHERE id = ? AND society_id = ?`,
       values
     );
 
@@ -162,7 +222,7 @@ export const updateMaintenanceSetting = async (req, res) => {
       message: "Setting updated successfully",
     });
   } catch (err) {
-    console.error("Update Maintenance Setting Error:", err);
+    console.error("UPDATE MAINTENANCE SETTING ERROR:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to update setting",
@@ -178,13 +238,14 @@ export const softDeleteMaintenanceSetting = async (req, res) => {
   }
 
   const id = Number(req.params.id);
+  const societyId = getAdminSocietyId(req);
 
   try {
-    const [result] = await maintenance_settings.query(
+    const [result] = await db.query(
       `UPDATE maintenance_settings
        SET status = 'inactive'
-       WHERE id = ? AND status = 'active'`,
-      [id]
+       WHERE id = ? AND society_id = ? AND status = 'active'`,
+      [id, societyId]
     );
 
     if (result.affectedRows === 0) {
@@ -199,7 +260,7 @@ export const softDeleteMaintenanceSetting = async (req, res) => {
       message: "Setting deactivated successfully",
     });
   } catch (err) {
-    console.error("Soft Delete Setting Error:", err);
+    console.error("SOFT DELETE SETTING ERROR:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to deactivate setting",

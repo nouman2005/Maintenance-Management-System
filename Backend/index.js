@@ -8,6 +8,11 @@ import adminRoutes from "./Routes/adminRoutes.js";
 import flatRoutes from "./Routes/flatRoutes.js";
 import tenantRoutes from "./Routes/tenantRoutes.js";
 import maintenanceSettingRoutes from "./Routes/maintenanceSettingRoutes.js";
+import maintenanceRoutes from "./Routes/maintenanceRoutes.js";
+import { scheduleMonthlyMaintenanceCharges } from "./Controllers/maintenanceController.js";
+import societyRoutes from "./Routes/societyRoutes.js";
+import superAdminRoutes from "./Routes/superAdminRoutes.js";
+import authRoutes from "./Routes/authRoutes.js";
 
 dotenv.config();
 
@@ -33,10 +38,14 @@ app.use(
 
 app.use(morgan("dev"));
 
+app.use("/api/v1/super-admin", superAdminRoutes);
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/society", societyRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/flats", flatRoutes);
 app.use("/api/v1/tenants", tenantRoutes);
 app.use("/api/v1/maintenance-settings", maintenanceSettingRoutes);
+app.use("/api/v1/maintenance", maintenanceRoutes);
 
 app.get("/", (req, res) => {
   res.send("<h1>SuccessFully Connected</h1>");
@@ -44,4 +53,5 @@ app.get("/", (req, res) => {
 
 app.listen(process.env.PORT, () => {
   console.log(`✅ Server Running At Port ${process.env.PORT}`);
+  scheduleMonthlyMaintenanceCharges();
 });

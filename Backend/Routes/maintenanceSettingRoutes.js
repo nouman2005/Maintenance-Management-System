@@ -6,40 +6,53 @@ import {
   softDeleteMaintenanceSetting,
   updateMaintenanceSetting,
 } from "../Controllers/maintenanceSettingController.js";
-import { verifyAdminToken } from "../Middlewares/authMiddleware.js";
 import {
   addSettingValidation,
   deleteSettingValidation,
   getSettingByKeyValidation,
+  listSettingValidation,
   updateSettingValidation,
 } from "../validators/maintenanceSettingValidator.js";
+import { verifyAccessToken } from "../Middlewares/verifyAccessToken.js";
+import { adminOnly } from "../Middlewares/adminMiddleware.js";
 
 const router = express.Router();
 
 router.post(
-  "/add",
-  verifyAdminToken,
+  "/",
+  verifyAccessToken,
+  adminOnly,
   addSettingValidation,
   addMaintenanceSetting
 );
 
-router.get("/all", verifyAdminToken, getAllMaintenanceSettings);
 router.get(
-  "/setting/:key",
-  verifyAdminToken,
+  "/",
+  verifyAccessToken,
+  adminOnly,
+  listSettingValidation,
+  getAllMaintenanceSettings
+);
+router.get(
+  "/:key",
+  verifyAccessToken,
+  adminOnly,
   getSettingByKeyValidation,
   getSettingByKey
 );
 
 router.patch(
-  "/update/:id",
-  verifyAdminToken,
+  "/:id",
+  verifyAccessToken,
+  adminOnly,
   updateSettingValidation,
   updateMaintenanceSetting
 );
 
-router.patch(
-  "/delete/:id",
+router.delete(
+  "/:id",
+  verifyAccessToken,
+  adminOnly,
   deleteSettingValidation,
   softDeleteMaintenanceSetting
 );

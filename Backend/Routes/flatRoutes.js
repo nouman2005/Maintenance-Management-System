@@ -1,22 +1,47 @@
 import express from "express";
-import { verifyAdminToken } from "../middlewares/authMiddleware.js";
-import { flatValidation } from "../validators/flatValidator.js";
+import { verifyAccessToken } from "../Middlewares/verifyAccessToken.js";
+import { adminOnly } from "../Middlewares/adminMiddleware.js";
 import {
-  addFlat,
+  createFlatValidator,
+  flatIdParamValidator,
+  flatListValidator,
+  updateFlatValidator,
+} from "../validators/flatValidator.js";
+import {
+  createFlat,
   deactivateFlat,
   getFlatById,
   getFlats,
-  getFlatsWithPagination,
   updateFlat,
 } from "../Controllers/flatController.js";
 
 const router = express.Router();
 
-router.post("/addFlat", verifyAdminToken, flatValidation, addFlat);
-router.get("/getFlats", verifyAdminToken, getFlats);
-router.get("/paginated/list", verifyAdminToken, getFlatsWithPagination);
-router.get("/getFlatByID/:id", verifyAdminToken, getFlatById);
-router.put("/updateFlat/:id", verifyAdminToken, updateFlat);
-router.put("/flatDelete/:id", verifyAdminToken, deactivateFlat);
+router.post("/", verifyAccessToken, adminOnly, createFlatValidator, createFlat);
 
+router.get("/", verifyAccessToken, adminOnly, flatListValidator, getFlats);
+
+router.get(
+  "/:id",
+  verifyAccessToken,
+  adminOnly,
+  flatIdParamValidator,
+  getFlatById
+);
+
+router.put(
+  "/:id",
+  verifyAccessToken,
+  adminOnly,
+  updateFlatValidator,
+  updateFlat
+);
+
+router.delete(
+  "/:id",
+  verifyAccessToken,
+  adminOnly,
+  flatIdParamValidator,
+  deactivateFlat
+);
 export default router;

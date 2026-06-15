@@ -1,38 +1,44 @@
 import express from "express";
+import { verifyAccessToken } from "../Middlewares/verifyAccessToken.js";
+import { adminOnly } from "../Middlewares/adminMiddleware.js";
 import {
-  addTenant,
-  deactivateTenant,
-  getAllTenants,
-  getTenantById,
-  getTenantsWithPagination,
-  requestTenantExit,
-} from "../Controllers/tenantController.js";
-import { verifyAdminToken } from "../middlewares/authMiddleware.js";
-import {
-  addTenantValidation,
-  tenantIdValidation,
+  createTenantValidator,
+  tenantIdParamValidator,
+  tenantListValidator,
 } from "../validators/tenantValidator.js";
+import {
+  createTenant,
+  deactivateTenant,
+  getTenantById,
+  getTenants,
+} from "../Controllers/tenantController.js";
 
 const router = express.Router();
 
-router.post("/addTenant", verifyAdminToken, addTenantValidation, addTenant);
+router.post(
+  "/",
+  verifyAccessToken,
+  adminOnly,
+  createTenantValidator,
+  createTenant,
+);
 
-router.get("/getAllTenants", verifyAdminToken, getAllTenants);
+router.get("/", verifyAccessToken, adminOnly, tenantListValidator, getTenants);
+
 router.get(
-  "/getTenantById/:id",
-  verifyAdminToken,
-  tenantIdValidation,
+  "/:id",
+  verifyAccessToken,
+  adminOnly,
+  tenantIdParamValidator,
   getTenantById
 );
 
-router.get("/getTenantsPagination", verifyAdminToken, getTenantsWithPagination);
-
-router.put(
-  "/exitRequest/:id",
-  verifyAdminToken,
-  tenantIdValidation,
-  requestTenantExit
+router.delete(
+  "/:id",
+  verifyAccessToken,
+  adminOnly,
+  tenantIdParamValidator,
+  deactivateTenant
 );
-router.put("/deActivateTenant/:id", tenantIdValidation, deactivateTenant);
 
 export default router;

@@ -1,17 +1,36 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
+
+const settingKeys = [
+  "base_maintenance",
+  "per_sqft_rate",
+  "late_fee",
+  "parking_fee",
+  "noc_charge",
+];
 
 export const addSettingValidation = [
   body("setting_key")
     .notEmpty()
     .withMessage("Setting key is required")
-    .isUppercase()
-    .withMessage("Setting key must be uppercase"),
+    .isIn(settingKeys)
+    .withMessage("Invalid setting key"),
 
   body("setting_value")
-    .isDecimal()
+    .isFloat({ min: 0 })
     .withMessage("Setting value must be a number"),
 
+  body("value_type")
+    .optional()
+    .isIn(["fixed", "percentage", "per_sqft"])
+    .withMessage("Invalid value type"),
+
   body("description").optional().isLength({ max: 255 }),
+];
+
+export const listSettingValidation = [
+  query("page").optional().isInt({ min: 1 }),
+  query("limit").optional().isInt({ min: 1, max: 100 }),
+  query("status").optional().isIn(["active", "inactive"]),
 ];
 
 export const updateSettingValidation = [
