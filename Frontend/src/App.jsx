@@ -2,6 +2,7 @@ import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./Components/Login";
 import MaintenanceDashboard from "./Components/MaintenanceDashboard";
+import RegisterSociety from "./Components/RegisterSociety";
 import TenantsDetails from "./Components/Pages/Tenants/TenantsDetails";
 import ProtectedRoute from "./Routes/ProtectedRoute";
 
@@ -11,6 +12,7 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path='/login' element={<Login />} />
+        <Route path='/register-society' element={<RegisterSociety />} />
         <Route path='/' element={<Login />} />
 
         {/* Protected Routes */}

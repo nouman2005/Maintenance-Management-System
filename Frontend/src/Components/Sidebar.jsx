@@ -2,9 +2,10 @@ import React, { useState } from "react";
 import { MdAddHomeWork, MdDashboard } from "react-icons/md";
 import { IoHomeOutline, IoSettingsOutline } from "react-icons/io5";
 import { FaChevronDown, FaChevronUp, FaUsers } from "react-icons/fa";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../redux/slices/authSlice";
+import { Building2, CheckCheck, ClipboardList, WalletCards } from "lucide-react";
 
 const SidebarItem = ({ icon, label, onClick }) => {
   return (
@@ -17,14 +18,22 @@ const SidebarItem = ({ icon, label, onClick }) => {
   );
 };
 
-function Sidebar({ setShowComponent, showSidebar, setShowSidebar }) {
+function Sidebar({
+  setShowComponent,
+  showSidebar,
+  setShowSidebar,
+  setSelectedSocietyId,
+}) {
   const [flatDropdownOpen, setFlatDropdownOpen] = useState(false);
   const [tenantDropdownOpen, setTenantDropdownOpen] = useState(false);
+  const [maintenanceDropdownOpen, setMaintenanceDropdownOpen] = useState(false);
   const [maintenanceSettingDropdownOpen, setMaintenanceSettingDropdownOpen] =
     useState(false);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { user } = useSelector((state) => state.auth);
+  const isSuperAdmin = user?.role === "super_admin";
 
   const handleLogout = () => {
     dispatch(logout());
@@ -55,99 +64,189 @@ function Sidebar({ setShowComponent, showSidebar, setShowSidebar }) {
           label='Home'
         />
 
-        {/* Flats */}
-        <div>
-          <div
-            onClick={() => setFlatDropdownOpen(!flatDropdownOpen)}
-            className='flex items-center justify-between px-5 py-3 rounded-xl backdrop-blur-sm bg-white/5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow hover:shadow-lg'>
-            <div className='flex items-center gap-4'>
-              <MdAddHomeWork className='text-xl' />
-              <span className='text-base font-medium tracking-wide'>Flats</span>
-            </div>
-            {flatDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
-          </div>
+        {isSuperAdmin ? (
+          <>
+            <SidebarItem
+              onClick={() => {
+                setShowComponent("RequestSociety");
+                setShowSidebar(false);
+              }}
+              icon={<ClipboardList className='text-2xl' />}
+              label='Request Society'
+            />
 
-          {flatDropdownOpen && (
-            <div className='ml-10 mt-2 flex flex-col gap-2'>
-              <div
-                onClick={() => setShowComponent("AddFlats")}
-                className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
-                Add Flats
-              </div>
-              <div
-                onClick={() => setShowComponent("FlatsDetails")}
-                className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
-                Flats Details
-              </div>
-            </div>
-          )}
-        </div>
+            <SidebarItem
+              onClick={() => {
+                setSelectedSocietyId(null);
+                setShowComponent("SocietyLists");
+                setShowSidebar(false);
+              }}
+              icon={<Building2 className='text-2xl' />}
+              label='All Society Lists'
+            />
 
-        {/* Tenants */}
-        <div>
-          <div
-            onClick={() => setTenantDropdownOpen(!tenantDropdownOpen)}
-            className='flex items-center justify-between px-5 py-3 rounded-xl backdrop-blur-sm bg-white/5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow hover:shadow-lg'>
-            <div className='flex items-center gap-4'>
-              <FaUsers className='text-xl' />
-              <span className='text-base font-medium tracking-wide'>
-                Tenants
-              </span>
-            </div>
-            {tenantDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
-          </div>
+            <SidebarItem
+              onClick={() => {
+                setShowComponent("CompleteRejectList");
+                setShowSidebar(false);
+              }}
+              icon={<CheckCheck className='text-2xl' />}
+              label='Complete Reject List'
+            />
+          </>
+        ) : (
+          <>
+            {/* Flats */}
+            <div>
+              <div
+                onClick={() => setFlatDropdownOpen(!flatDropdownOpen)}
+                className='flex items-center justify-between px-5 py-3 rounded-xl backdrop-blur-sm bg-white/5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow hover:shadow-lg'>
+                <div className='flex items-center gap-4'>
+                  <MdAddHomeWork className='text-xl' />
+                  <span className='text-base font-medium tracking-wide'>
+                    Flats
+                  </span>
+                </div>
+                {flatDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
 
-          {tenantDropdownOpen && (
-            <div className='ml-10 mt-2 flex flex-col gap-2'>
-              <div
-                onClick={() => setShowComponent("AddTenants")}
-                className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
-                Add Tenants
-              </div>
-              <div
-                onClick={() => setShowComponent("TenantsList")}
-                className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
-                Tenants Details
-              </div>
+              {flatDropdownOpen && (
+                <div className='ml-10 mt-2 flex flex-col gap-2'>
+                  <div
+                    onClick={() => setShowComponent("AddFlats")}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Add Flats
+                  </div>
+                  <div
+                    onClick={() => setShowComponent("FlatsDetails")}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Flats Details
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Maintenance Settings */}
-        <div>
-          <div
-            onClick={() =>
-              setMaintenanceSettingDropdownOpen(!maintenanceSettingDropdownOpen)
-            }
-            className='flex items-center justify-between px-5 py-3 rounded-xl backdrop-blur-sm bg-white/5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow hover:shadow-lg'>
-            <div className='flex items-center gap-4'>
-              <IoSettingsOutline className='text-xl' />
-              <span className='text-base font-medium tracking-wide'>
-                Maintenance Settings
-              </span>
-            </div>
-            {maintenanceSettingDropdownOpen ? (
-              <FaChevronUp />
-            ) : (
-              <FaChevronDown />
-            )}
-          </div>
+            {/* Tenants */}
+            <div>
+              <div
+                onClick={() => setTenantDropdownOpen(!tenantDropdownOpen)}
+                className='flex items-center justify-between px-5 py-3 rounded-xl backdrop-blur-sm bg-white/5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow hover:shadow-lg'>
+                <div className='flex items-center gap-4'>
+                  <FaUsers className='text-xl' />
+                  <span className='text-base font-medium tracking-wide'>
+                    Tenants
+                  </span>
+                </div>
+                {tenantDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
 
-          {maintenanceSettingDropdownOpen && (
-            <div className='ml-10 mt-2 flex flex-col gap-2'>
-              <div
-                onClick={() => setShowComponent("AddMaintenanceSetting")}
-                className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
-                Add Maintenance Settings
-              </div>
-              <div
-                onClick={() => setShowComponent("MaintenanceSettingList")}
-                className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
-                Maintenance Settings Lists
-              </div>
+              {tenantDropdownOpen && (
+                <div className='ml-10 mt-2 flex flex-col gap-2'>
+                  <div
+                    onClick={() => setShowComponent("AddTenants")}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Add Tenants
+                  </div>
+                  <div
+                    onClick={() => setShowComponent("TenantsList")}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Tenants Details
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Maintenance Settings */}
+            <div>
+              <div
+                onClick={() =>
+                  setMaintenanceSettingDropdownOpen(
+                    !maintenanceSettingDropdownOpen
+                  )
+                }
+                className='flex items-center justify-between px-5 py-3 rounded-xl backdrop-blur-sm bg-white/5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow hover:shadow-lg'>
+                <div className='flex items-center gap-4'>
+                  <IoSettingsOutline className='text-xl' />
+                  <span className='text-base font-medium tracking-wide'>
+                    Maintenance Settings
+                  </span>
+                </div>
+                {maintenanceSettingDropdownOpen ? (
+                  <FaChevronUp />
+                ) : (
+                  <FaChevronDown />
+                )}
+              </div>
+
+              {maintenanceSettingDropdownOpen && (
+                <div className='ml-10 mt-2 flex flex-col gap-2'>
+                  <div
+                    onClick={() => setShowComponent("AddMaintenanceSetting")}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Add Maintenance Settings
+                  </div>
+                  <div
+                    onClick={() => setShowComponent("MaintenanceSettingList")}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Maintenance Settings Lists
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Maintenance */}
+            <div>
+              <div
+                onClick={() => setMaintenanceDropdownOpen(!maintenanceDropdownOpen)}
+                className='flex items-center justify-between px-5 py-3 rounded-xl backdrop-blur-sm bg-white/5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow hover:shadow-lg'>
+                <div className='flex items-center gap-4'>
+                  <WalletCards className='text-xl' />
+                  <span className='text-base font-medium tracking-wide'>
+                    Maintenance
+                  </span>
+                </div>
+                {maintenanceDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+
+              {maintenanceDropdownOpen && (
+                <div className='ml-10 mt-2 flex flex-col gap-2'>
+                  <div
+                    onClick={() => {
+                      setShowComponent("PayMaintenance");
+                      setShowSidebar(false);
+                    }}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Pay Maintenance
+                  </div>
+                  <div
+                    onClick={() => {
+                      setShowComponent("AddBalanceMaintenance");
+                      setShowSidebar(false);
+                    }}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Add Balance Maintenance
+                  </div>
+                  <div
+                    onClick={() => {
+                      setShowComponent("MonthlyMaintenanceCollectionReport");
+                      setShowSidebar(false);
+                    }}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Monthly Maintenance Collection Report
+                  </div>
+                  <div
+                    onClick={() => {
+                      setShowComponent("MaintenanceManagement");
+                      setShowSidebar(false);
+                    }}
+                    className='px-4 py-2 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 cursor-pointer hover:scale-105 transition'>
+                    Maintenance Management
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         {/* 🔴 Logout */}
         <div

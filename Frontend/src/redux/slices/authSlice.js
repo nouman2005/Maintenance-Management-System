@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { loginAdmin } from "../../api/auth.api";
 
-/* Async thunk */
 export const loginUser = createAsyncThunk(
   "auth/login",
   async (data, { rejectWithValue }) => {
@@ -17,8 +16,9 @@ export const loginUser = createAsyncThunk(
 const authSlice = createSlice({
   name: "auth",
   initialState: {
-    user: null,
-    token: localStorage.getItem("token") || null,
+    user: JSON.parse(localStorage.getItem("user")) || null,
+    accessToken: localStorage.getItem("accessToken") || null,
+    refreshToken: localStorage.getItem("refreshToken") || null,
     loading: false,
     error: null,
   },
@@ -26,8 +26,9 @@ const authSlice = createSlice({
   reducers: {
     logout: (state) => {
       state.user = null;
-      state.token = null;
-      localStorage.removeItem("token");
+      state.accessToken = null;
+      state.refreshToken = null;
+      localStorage.clear();
     },
   },
 
@@ -40,8 +41,15 @@ const authSlice = createSlice({
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
-        state.token = action.payload.token;
-        localStorage.setItem("token", action.payload.token);
+        state.accessToken = action.payload.tokens?.accessToken;
+        state.refreshToken = action.payload.tokens?.refreshToken;
+
+        localStorage.setItem("user", JSON.stringify(action.payload.user));
+        localStorage.setItem("accessToken", action.payload.tokens?.accessToken);
+        localStorage.setItem(
+          "refreshToken",
+          action.payload.tokens?.refreshToken
+        );
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;

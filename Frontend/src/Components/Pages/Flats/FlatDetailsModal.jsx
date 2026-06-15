@@ -12,8 +12,8 @@ function FlatDetailsModal({ flatId, onClose }) {
   useEffect(() => {
     if (flatId) {
       getFlatById(flatId).then((res) => {
-        setFlat(res.data);
-        setForm(res.data);
+        setFlat(res.data.data);
+        setForm(res.data.data);
       });
     }
   }, [flatId]);
@@ -66,7 +66,7 @@ function FlatDetailsModal({ flatId, onClose }) {
                 ["Wing", "wing"],
                 ["Flat No", "flat_no"],
                 ["Floor", "floor_no"],
-                ["Area (sqft)", "area"],
+                ["Area (sqft)", "area_sqft"],
                 ["Maintenance Amount", "maintenance_amount"],
                 ["Occupancy", "occupancy"],
                 ["Status", "status"],
@@ -83,7 +83,7 @@ function FlatDetailsModal({ flatId, onClose }) {
                   ) : (
                     <div className='mt-1 px-3 py-2 bg-gray-50 rounded-lg font-medium'>
                       {key === "maintenance_amount"
-                        ? `₹ ${flat[key]}`
+                        ? `Rs. ${flat[key]}`
                         : flat[key]}
                     </div>
                   )}
@@ -101,9 +101,9 @@ function FlatDetailsModal({ flatId, onClose }) {
             <div className='grid grid-cols-2 gap-4'>
               {[
                 ["Owner Name", "owner_name"],
-                ["Phone", "phone"],
-                ["Whatsapp", "whatsapp"],
-                ["Email", "email"],
+                ["Phone", "owner_phone"],
+                ["Whatsapp", "owner_whatsapp"],
+                ["Email", "owner_email"],
               ].map(([label, key]) => (
                 <div key={key}>
                   <label className='text-xs text-gray-500'>{label}</label>

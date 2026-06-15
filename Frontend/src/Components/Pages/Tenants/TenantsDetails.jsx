@@ -15,7 +15,7 @@ function TenantsDetails() {
   const fetchTenant = async () => {
     try {
       const res = await getTenantById(id);
-      setTenant(res.data.message);
+      setTenant(res.data.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -35,6 +35,7 @@ function TenantsDetails() {
         <div>
           <p className='text-sm text-gray-500'>Tenants / Details</p>
           <h1 className='text-2xl font-semibold'>{tenant.tenant_name}</h1>
+          <p className='text-sm text-gray-500'>{tenant.tenant_code}</p>
         </div>
 
         <button
@@ -84,6 +85,22 @@ function TenantsDetails() {
           />
         </div>
       </div>
+
+      <div className='bg-white shadow rounded-xl p-6'>
+        <h2 className='text-lg font-semibold mb-4'>Charges</h2>
+
+        <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+          <Detail
+            label='Maintenance'
+            value={formatMoney(tenant.maintenance_amount)}
+          />
+          <Detail label='NOC Charge' value={formatMoney(tenant.noc_charge)} />
+          <Detail
+            label='Total Monthly Charge'
+            value={formatMoney(tenant.total_monthly_charge)}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -111,5 +128,11 @@ const formatDate = (date) => {
     year: "numeric",
   });
 };
+
+const formatMoney = (value) =>
+  `Rs. ${Number(value || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 export default TenantsDetails;

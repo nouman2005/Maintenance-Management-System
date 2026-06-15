@@ -1,17 +1,12 @@
-import api from "../api/axios";
+import api from "./axios";
 
-export const addTenant = async (data) => {
-  return api.post("/tenants/addTenant", data);
-};
+export const addTenant = (data) => api.post("/tenants", data);
 
-export const getTenants = async (page = 1, limit = 10) => {
-  return api.get(`/tenants/getTenantsPagination?page=${page}&limit=${limit}`);
-};
+export const getTenants = (page = 1, limit = 10, params = {}) =>
+  api.get("/tenants", {
+    params: { page, limit, ...params },
+  });
 
-export const getTenantById = async (id) => {
-  return api.get(`/tenants/getTenantById/${id}`);
-};
+export const getTenantById = (id) => api.get(`/tenants/${id}`);
 
-export const deactivateTenant = async (id) => {
-  return api.put(`/tenants/deActivateTenant/${id}`);
-};
+export const deactivateTenant = (id) => api.delete(`/tenants/${id}`);

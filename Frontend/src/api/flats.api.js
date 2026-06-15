@@ -1,23 +1,14 @@
-import api from "../api/axios";
+import api from "./axios";
 
-export const addFlat = async (data) => {
-  return api.post("/flats/addFlat", data);
-};
+export const addFlat = (data) => api.post("/flats", data);
 
-export const getFlatsPaginated = async (page = 1, limit = 10) => {
-  return api.get("/flats/paginated/list", {
-    params: { page, limit },
+export const getFlatsPaginated = (page = 1, limit = 10, params = {}) =>
+  api.get("/flats", {
+    params: { page, limit, ...params },
   });
-};
 
-export const getFlatById = async (id) => {
-  return api.get(`/flats/getFlatByID/${id}`);
-};
+export const getFlatById = (id) => api.get(`/flats/${id}`);
 
-export const updateFlat = async (id, data) => {
-  return api.put(`/flats/updateFlat/${id}`, data);
-};
+export const updateFlat = (id, data) => api.put(`/flats/${id}`, data);
 
-export const flatDeactivate = async (id) => {
-  return api.put(`/flats/flatDelete/${id}`);
-};
+export const flatDeactivate = (id) => api.delete(`/flats/${id}`);
