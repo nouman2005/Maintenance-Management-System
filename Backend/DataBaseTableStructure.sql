@@ -11,6 +11,7 @@ CREATE TABLE super_admins (
   status ENUM('active','inactive') DEFAULT 'active',
 
   refresh_token TEXT NULL,
+  previous_login_at TIMESTAMP NULL,
   last_login_at TIMESTAMP NULL,
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -96,11 +97,15 @@ CREATE TABLE admins (
   email VARCHAR(100) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
   phone VARCHAR(15),
+  password_must_change BOOLEAN NOT NULL DEFAULT FALSE,
+  temporary_password_created_at TIMESTAMP NULL,
+  password_changed_at TIMESTAMP NULL,
 
   role ENUM('admin') DEFAULT 'admin',
   status ENUM('active','inactive') DEFAULT 'active',
 
   refresh_token TEXT NULL,
+  previous_login_at TIMESTAMP NULL,
   last_login_at TIMESTAMP NULL,
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -263,6 +268,36 @@ CREATE TABLE maintenance_settings (
 
   CONSTRAINT chk_effective_dates
     CHECK (effective_to IS NULL OR effective_to > effective_from)
+);
+
+-- CREATE SOCIETY REGISTRATION AUDIT LOG TABLE
+CREATE TABLE society_registration_audit_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+
+  registration_request_id INT NOT NULL,
+  society_id INT NULL,
+  super_admin_id INT NOT NULL,
+
+  action ENUM('approved','rejected') NOT NULL,
+  details JSON NULL,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  INDEX idx_society_registration_audit_request (registration_request_id),
+  INDEX idx_society_registration_audit_society (society_id),
+  INDEX idx_society_registration_audit_super_admin (super_admin_id),
+
+  CONSTRAINT fk_registration_audit_request
+    FOREIGN KEY (registration_request_id)
+    REFERENCES society_registration_requests(id),
+
+  CONSTRAINT fk_registration_audit_society
+    FOREIGN KEY (society_id)
+    REFERENCES societies(id),
+
+  CONSTRAINT fk_registration_audit_super_admin
+    FOREIGN KEY (super_admin_id)
+    REFERENCES super_admins(id)
 );
 
 -- CREATE PRODUCTION MAINTENANCE RULE CONFIGURATION TABLE

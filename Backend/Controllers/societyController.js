@@ -4,8 +4,10 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { sendAdminCredentialsEmail } from "../Services/mailService.js";
 
-const generatePassword = () =>
-  `Admin@${crypto.randomBytes(4).toString("hex")}`;
+const generatePassword = () => {
+  const randomPart = crypto.randomBytes(12).toString("base64url");
+  return `Admin@${randomPart}7`;
+};
 
 const isMissingTableError = (error) => error?.code === "ER_NO_SUCH_TABLE";
 
@@ -279,8 +281,9 @@ export const approveSocietyRegistrationRequest = async (req, res) => {
 
     await connection.query(
       `INSERT INTO admins
-       (society_id, created_by_super_admin_id, name, email, password, phone)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (society_id, created_by_super_admin_id, name, email, password, phone,
+        password_must_change, temporary_password_created_at)
+       VALUES (?, ?, ?, ?, ?, ?, TRUE, NOW())`,
       [
         societyResult.insertId,
         superAdminId,
@@ -298,6 +301,24 @@ export const approveSocietyRegistrationRequest = async (req, res) => {
            reviewed_at = NOW()
        WHERE id = ?`,
       [superAdminId, id]
+    );
+
+    await connection.query(
+      `INSERT INTO society_registration_audit_logs
+       (registration_request_id, society_id, super_admin_id, action, details)
+       VALUES (?, ?, ?, 'approved', ?)`,
+      [
+        id,
+        societyResult.insertId,
+        superAdminId,
+        JSON.stringify({
+          admin_email: request.admin_email,
+          society_name: request.society_name,
+          credentials_generated: true,
+          password_hash_stored: true,
+          plain_password_stored: false,
+        }),
+      ]
     );
 
     await connection.commit();
@@ -361,6 +382,19 @@ export const rejectSocietyRegistrationRequest = async (req, res) => {
         message: "Pending registration request not found",
       });
     }
+
+    await societies.query(
+      `INSERT INTO society_registration_audit_logs
+       (registration_request_id, society_id, super_admin_id, action, details)
+       VALUES (?, NULL, ?, 'rejected', ?)`,
+      [
+        id,
+        req.user.id,
+        JSON.stringify({
+          rejection_reason: rejection_reason || null,
+        }),
+      ]
+    );
 
     return res.status(200).json({
       success: true,

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Eye, Power, RefreshCw } from "lucide-react";
+import { AlertTriangle, Eye, Loader2, Power, RefreshCw, X } from "lucide-react";
 import { deactivateSociety, getSocieties } from "../../api/society.api";
 
 function SocietyLists({ onViewSociety }) {
@@ -8,6 +8,9 @@ function SocietyLists({ onViewSociety }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [selectedSociety, setSelectedSociety] = useState(null);
+  const [deactivating, setDeactivating] = useState(false);
+  const [modalMessage, setModalMessage] = useState({ type: "", text: "" });
 
   const fetchSocieties = async () => {
     setLoading(true);
@@ -26,19 +29,38 @@ function SocietyLists({ onViewSociety }) {
     fetchSocieties();
   }, [page]);
 
-  const handleDeactivate = async (society) => {
-    const confirmed = window.confirm(
-      `Deactivate ${society.society_name}? This society will be marked inactive.`
-    );
+  const openDeactivateModal = (society) => {
+    setSelectedSociety(society);
+    setModalMessage({ type: "", text: "" });
+  };
 
-    if (!confirmed) return;
+  const closeDeactivateModal = () => {
+    if (deactivating) return;
+    setSelectedSociety(null);
+    setModalMessage({ type: "", text: "" });
+  };
 
+  const handleDeactivate = async () => {
+    if (!selectedSociety || deactivating) return;
+
+    setDeactivating(true);
+    setModalMessage({ type: "", text: "" });
     try {
-      const res = await deactivateSociety(society.id);
-      toast.success(res.data.message || "Society deactivated successfully");
-      fetchSocieties();
+      const res = await deactivateSociety(selectedSociety.id);
+      const message = res.data.message || "Society deactivated successfully";
+      setModalMessage({ type: "success", text: message });
+      toast.success(message);
+      await fetchSocieties();
+      window.setTimeout(() => {
+        setSelectedSociety(null);
+        setModalMessage({ type: "", text: "" });
+      }, 900);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Unable to deactivate");
+      const message = error.response?.data?.message || "Unable to deactivate";
+      setModalMessage({ type: "error", text: message });
+      toast.error(message);
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -129,9 +151,9 @@ function SocietyLists({ onViewSociety }) {
                         <Eye size={18} />
                       </button>
                       <button
-                        onClick={() => handleDeactivate(society)}
+                        onClick={() => openDeactivateModal(society)}
                         disabled={society.status === "inactive"}
-                        className='h-9 w-9 inline-flex items-center justify-center rounded bg-rose-600 text-white disabled:cursor-not-allowed disabled:bg-slate-300'
+                        className='h-9 w-9 inline-flex items-center justify-center rounded bg-rose-600 text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300'
                         title='Deactivate society'>
                         <Power size={18} />
                       </button>
@@ -158,6 +180,88 @@ function SocietyLists({ onViewSociety }) {
           Next
         </button>
       </div>
+
+      {selectedSociety && (
+        <div
+          className='fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm'
+          role='dialog'
+          aria-modal='true'
+          aria-labelledby='deactivate-society-title'>
+          <div className='w-full max-w-md rounded-lg border border-rose-100 bg-white shadow-2xl'>
+            <div className='flex items-start gap-4 border-b border-slate-100 p-5'>
+              <span className='inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 ring-8 ring-rose-50/60'>
+                <AlertTriangle size={22} />
+              </span>
+              <div className='min-w-0 flex-1'>
+                <h3
+                  id='deactivate-society-title'
+                  className='text-lg font-semibold text-slate-950'>
+                  Inactivate society?
+                </h3>
+                <p className='mt-1 text-sm leading-6 text-slate-600'>
+                  This action will mark{" "}
+                  <span className='font-semibold text-slate-950'>
+                    {selectedSociety.society_name}
+                  </span>{" "}
+                  as inactive. Please confirm before proceeding.
+                </p>
+              </div>
+              <button
+                type='button'
+                onClick={closeDeactivateModal}
+                disabled={deactivating}
+                className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50'
+                aria-label='Close modal'>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className='space-y-4 p-5'>
+              <div className='rounded-md border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-800'>
+                Society access and related administrative activity may be affected after inactivation.
+              </div>
+
+              {modalMessage.text && (
+                <div
+                  className={`rounded-md px-4 py-3 text-sm font-medium ${
+                    modalMessage.type === "success"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-red-50 text-red-700"
+                  }`}>
+                  {modalMessage.text}
+                </div>
+              )}
+
+              <div className='flex flex-col-reverse gap-3 sm:flex-row sm:justify-end'>
+                <button
+                  type='button'
+                  onClick={closeDeactivateModal}
+                  disabled={deactivating}
+                  className='inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'>
+                  Cancel
+                </button>
+                <button
+                  type='button'
+                  onClick={handleDeactivate}
+                  disabled={deactivating}
+                  className='inline-flex h-10 items-center justify-center gap-2 rounded-md bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm shadow-rose-200 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-400'>
+                  {deactivating ? (
+                    <>
+                      <Loader2 size={17} className='animate-spin' />
+                      Inactivating...
+                    </>
+                  ) : (
+                    <>
+                      <Power size={17} />
+                      Inactivate
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -31,9 +31,20 @@ const firstDay = (value) => {
   }
   const match = text.match(/^([A-Za-z]{3,})[-\s']?(\d{2,4})$/);
   if (!match) return null;
-  const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(
-    match[1].slice(0, 3).toLowerCase()
-  );
+  const month = [
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+  ].indexOf(match[1].slice(0, 3).toLowerCase());
   if (month < 0) return null;
   const rawYear = Number(match[2]);
   const year = rawYear < 100 ? 2000 + rawYear : rawYear;
@@ -47,7 +58,9 @@ const currentMonthStart = () => {
 
 const monthEnd = (periodMonth) => {
   const period = new Date(periodMonth);
-  return new Date(period.getFullYear(), period.getMonth() + 1, 0).toISOString().slice(0, 10);
+  return new Date(period.getFullYear(), period.getMonth() + 1, 0)
+    .toISOString()
+    .slice(0, 10);
 };
 
 const shouldIncludeFuture = (req) =>
@@ -72,10 +85,14 @@ const addDays = (date, days) => {
 
 const defaultDueDate = (periodMonth, graceDays = 0) => {
   const period = new Date(periodMonth);
-  return addDays(new Date(period.getFullYear(), period.getMonth() + 1, 0), Number(graceDays || 0));
+  return addDays(
+    new Date(period.getFullYear(), period.getMonth() + 1, 0),
+    Number(graceDays || 0),
+  );
 };
 
-const nextReceiptNumber = () => `RCPT-${new Date().getFullYear()}-${prefixedNanoId("RCP")}`;
+const nextReceiptNumber = () =>
+  `RCPT-${new Date().getFullYear()}-${prefixedNanoId("RCP")}`;
 
 const normalizeBillingMonths = (value) => {
   if (!value) return [];
@@ -89,7 +106,9 @@ const monthRange = (from, to) => {
   const cursor = new Date(from);
   const end = new Date(to);
   while (cursor <= end) {
-    months.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-01`);
+    months.push(
+      `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-01`,
+    );
     cursor.setMonth(cursor.getMonth() + 1);
   }
   return months;
@@ -108,7 +127,15 @@ const statusFor = (totalDue, totalPaid) => {
   return "partial";
 };
 
-const audit = async (societyId, adminId, action, entityType, entityId, beforeData, afterData) => {
+const audit = async (
+  societyId,
+  adminId,
+  action,
+  entityType,
+  entityId,
+  beforeData,
+  afterData,
+) => {
   await db.query(
     `INSERT INTO maintenance_audit_logs
      (society_id, admin_id, action, entity_type, entity_id, before_data, after_data)
@@ -121,7 +148,7 @@ const audit = async (societyId, adminId, action, entityType, entityId, beforeDat
       entityId || null,
       beforeData ? JSON.stringify(beforeData) : null,
       afterData ? JSON.stringify(afterData) : null,
-    ]
+    ],
   );
 };
 
@@ -140,16 +167,18 @@ const getActiveRule = async (societyId) => {
      WHERE society_id = ? AND status = 'active'
      ORDER BY effective_from DESC, id DESC
      LIMIT 1`,
-    [societyId]
+    [societyId],
   );
-  return rows[0] || {
-    interest_rate_monthly: 0,
-    interest_grace_days: 0,
-    interest_method: "simple_monthly",
-    interest_apply_to: "maintenance_only",
-    exclude_noc_from_interest: 1,
-    rounding_mode: "nearest",
-  };
+  return (
+    rows[0] || {
+      interest_rate_monthly: 0,
+      interest_grace_days: 0,
+      interest_method: "simple_monthly",
+      interest_apply_to: "maintenance_only",
+      exclude_noc_from_interest: 1,
+      rounding_mode: "nearest",
+    }
+  );
 };
 
 const getFlatBalance = async (flatId) => {
@@ -157,7 +186,7 @@ const getFlatBalance = async (flatId) => {
     `SELECT COALESCE(SUM(total_balance), 0) AS total_balance
      FROM maintenance_charges
      WHERE flat_id = ?`,
-    [flatId]
+    [flatId],
   );
   return Number(balance?.total_balance || 0);
 };
@@ -194,7 +223,7 @@ const addLedgerEntry = async ({
       debitAmount,
       creditAmount,
       currentBalance,
-    ]
+    ],
   );
 };
 
@@ -203,8 +232,14 @@ const setExcelResponse = (res, fileName, rows, sheetName = "Report") => {
   const worksheet = XLSX.utils.json_to_sheet(rows);
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", `attachment; filename="${fileName}.xlsx"`);
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  );
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${fileName}.xlsx"`,
+  );
   return res.send(buffer);
 };
 
@@ -222,7 +257,7 @@ const buildSimplePdf = (title, lines) => {
     "50 790 Td",
     "14 TL",
     ...visibleLines.map((line, index) =>
-      index === 0 ? `(${pdfEscape(line)}) Tj` : `T* (${pdfEscape(line)}) Tj`
+      index === 0 ? `(${pdfEscape(line)}) Tj` : `T* (${pdfEscape(line)}) Tj`,
     ),
     "ET",
   ].join("\n");
@@ -252,13 +287,17 @@ const setPdfResponse = (res, fileName, title, rows) => {
   const lines = rows.map((row) => Object.values(row).join(" | "));
   const buffer = buildSimplePdf(title, lines);
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `attachment; filename="${fileName}.pdf"`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${fileName}.pdf"`,
+  );
   return res.send(buffer);
 };
 
 export const saveMaintenanceRule = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+  if (!errors.isEmpty())
+    return res.status(400).json({ success: false, errors: errors.array() });
 
   const { societyId, adminId } = getScope(req);
   if (ensureAdminSociety(res, societyId)) return;
@@ -279,7 +318,7 @@ export const saveMaintenanceRule = async (req, res) => {
     await db.query(
       `UPDATE maintenance_rule_configs SET status = 'inactive'
        WHERE society_id = ? AND status = 'active'`,
-      [societyId]
+      [societyId],
     );
     const [result] = await db.query(
       `INSERT INTO maintenance_rule_configs
@@ -298,15 +337,27 @@ export const saveMaintenanceRule = async (req, res) => {
         exclude_noc_from_interest ? 1 : 0,
         rounding_mode,
         effective_from || null,
-      ]
+      ],
     );
-    await audit(societyId, adminId, "create", "maintenance_rule", result.insertId, null, req.body);
+    await audit(
+      societyId,
+      adminId,
+      "create",
+      "maintenance_rule",
+      result.insertId,
+      null,
+      req.body,
+    );
     await db.commit();
-    return res.status(201).json({ success: true, message: "Maintenance rule saved successfully" });
+    return res
+      .status(201)
+      .json({ success: true, message: "Maintenance rule saved successfully" });
   } catch (error) {
     await db.rollback();
     console.error("SAVE MAINTENANCE RULE ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to save maintenance rule" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to save maintenance rule" });
   }
 };
 
@@ -322,12 +373,14 @@ export const getMaintenanceRules = async (req, res) => {
        FROM maintenance_rule_configs
        WHERE society_id = ?
        ORDER BY status = 'active' DESC, effective_from DESC, id DESC`,
-      [societyId]
+      [societyId],
     );
     return res.status(200).json({ success: true, data: rows });
   } catch (error) {
     console.error("GET MAINTENANCE RULES ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to fetch maintenance rules" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch maintenance rules" });
   }
 };
 
@@ -349,12 +402,32 @@ const upsertCharge = async (payload) => {
     notes = null,
   } = payload;
   const resolvedDueDate = dueDate || defaultDueDate(periodMonth, 0);
-  const totalDue = fromCents(toCents(maintenanceCharge) + toCents(nocCharge) + toCents(penaltyCharge) + toCents(interestAmount));
-  const totalPaid = fromCents(toCents(maintenancePaid) + toCents(nocPaid) + toCents(interestPaid));
-  const maintenanceBalance = fromCents(Math.max(toCents(maintenanceCharge) + toCents(penaltyCharge) - toCents(maintenancePaid), 0));
-  const nocBalance = fromCents(Math.max(toCents(nocCharge) - toCents(nocPaid), 0));
-  const interestBalance = fromCents(Math.max(toCents(interestAmount) - toCents(interestPaid), 0));
-  const totalBalance = fromCents(Math.max(toCents(totalDue) - toCents(totalPaid), 0));
+  const totalDue = fromCents(
+    toCents(maintenanceCharge) +
+      toCents(nocCharge) +
+      toCents(penaltyCharge) +
+      toCents(interestAmount),
+  );
+  const totalPaid = fromCents(
+    toCents(maintenancePaid) + toCents(nocPaid) + toCents(interestPaid),
+  );
+  const maintenanceBalance = fromCents(
+    Math.max(
+      toCents(maintenanceCharge) +
+        toCents(penaltyCharge) -
+        toCents(maintenancePaid),
+      0,
+    ),
+  );
+  const nocBalance = fromCents(
+    Math.max(toCents(nocCharge) - toCents(nocPaid), 0),
+  );
+  const interestBalance = fromCents(
+    Math.max(toCents(interestAmount) - toCents(interestPaid), 0),
+  );
+  const totalBalance = fromCents(
+    Math.max(toCents(totalDue) - toCents(totalPaid), 0),
+  );
   const status = statusFor(totalDue, totalPaid);
 
   const [result] = await db.query(
@@ -405,30 +478,36 @@ const upsertCharge = async (payload) => {
       status,
       source,
       notes,
-    ]
+    ],
   );
 
-  const chargeId = result.insertId || (
-    await db.query(
-      `SELECT id FROM maintenance_charges
+  const chargeId =
+    result.insertId ||
+    (
+      await db.query(
+        `SELECT id FROM maintenance_charges
        WHERE society_id = ? AND flat_id = ? AND period_month = ?
        LIMIT 1`,
-      [societyId, flatId, periodMonth]
-    )
-  )[0][0]?.id;
+        [societyId, flatId, periodMonth],
+      )
+    )[0][0]?.id;
 
   return { chargeId, totalDue };
 };
 
 export const createMaintenanceCharge = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+  if (!errors.isEmpty())
+    return res.status(400).json({ success: false, errors: errors.array() });
 
   const { societyId, adminId } = getScope(req);
   if (ensureAdminSociety(res, societyId)) return;
 
   const periodMonth = firstDay(req.body.period_month);
-  if (!periodMonth) return res.status(400).json({ success: false, message: "Invalid period month" });
+  if (!periodMonth)
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid period month" });
 
   try {
     const rule = await getActiveRule(societyId);
@@ -440,16 +519,21 @@ export const createMaintenanceCharge = async (req, res) => {
     }
     const [flats] = await db.query(
       `SELECT id FROM flats WHERE id = ? AND society_id = ? AND status = 'active'`,
-      [req.body.flat_id, societyId]
+      [req.body.flat_id, societyId],
     );
-    if (flats.length === 0) return res.status(404).json({ success: false, message: "Flat not found" });
+    if (flats.length === 0)
+      return res
+        .status(404)
+        .json({ success: false, message: "Flat not found" });
 
     const { chargeId, totalDue } = await upsertCharge({
       societyId,
       adminId,
       flatId: req.body.flat_id,
       periodMonth,
-      dueDate: req.body.due_date || defaultDueDate(periodMonth, rule.interest_grace_days),
+      dueDate:
+        req.body.due_date ||
+        defaultDueDate(periodMonth, rule.interest_grace_days),
       maintenanceCharge: amount(req.body.maintenance_charge),
       nocCharge: amount(req.body.noc_charge),
       penaltyCharge: amount(req.body.penalty_charge),
@@ -471,11 +555,24 @@ export const createMaintenanceCharge = async (req, res) => {
           : `Maintenance bill for ${periodMonth.slice(0, 7)}`,
       debitAmount: totalDue,
     });
-    await audit(societyId, adminId, "upsert", "maintenance_charge", null, null, req.body);
-    return res.status(201).json({ success: true, message: "Maintenance charge saved successfully" });
+    await audit(
+      societyId,
+      adminId,
+      "upsert",
+      "maintenance_charge",
+      null,
+      null,
+      req.body,
+    );
+    return res.status(201).json({
+      success: true,
+      message: "Maintenance charge saved successfully",
+    });
   } catch (error) {
     console.error("CREATE MAINTENANCE CHARGE ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to save maintenance charge" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to save maintenance charge" });
   }
 };
 
@@ -487,7 +584,8 @@ export const createOldMaintenanceDue = async (req, res) => {
 
 export const updateMaintenanceBalance = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+  if (!errors.isEmpty())
+    return res.status(400).json({ success: false, errors: errors.array() });
 
   const { societyId, adminId } = getScope(req);
   if (ensureAdminSociety(res, societyId)) return;
@@ -498,11 +596,13 @@ export const updateMaintenanceBalance = async (req, res) => {
     await db.beginTransaction();
     const [flats] = await db.query(
       `SELECT id FROM flats WHERE id = ? AND society_id = ? AND status = 'active'`,
-      [req.body.flat_id, societyId]
+      [req.body.flat_id, societyId],
     );
     if (flats.length === 0) {
       await db.rollback();
-      return res.status(404).json({ success: false, message: "Flat not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Flat not found" });
     }
 
     const [[existing]] = await db.query(
@@ -510,10 +610,12 @@ export const updateMaintenanceBalance = async (req, res) => {
        FROM maintenance_charges
        WHERE society_id = ? AND flat_id = ? AND period_month = ?
        LIMIT 1`,
-      [societyId, req.body.flat_id, periodMonth]
+      [societyId, req.body.flat_id, periodMonth],
     );
 
-    const outstandingMaintenance = amount(req.body.outstanding_maintenance_amount);
+    const outstandingMaintenance = amount(
+      req.body.outstanding_maintenance_amount,
+    );
     const outstandingNoc = amount(req.body.outstanding_noc_amount);
     const outstandingInterest = amount(req.body.outstanding_interest_amount);
     const maintenancePaid = Number(existing?.maintenance_paid || 0);
@@ -546,19 +648,34 @@ export const updateMaintenanceBalance = async (req, res) => {
       description: `Balance maintenance updated for ${periodMonth.slice(0, 7)}`,
       debitAmount: totalDue - maintenancePaid - nocPaid - interestPaid,
     });
-    await audit(societyId, adminId, "update", "maintenance_balance", chargeId, existing || null, req.body);
+    await audit(
+      societyId,
+      adminId,
+      "update",
+      "maintenance_balance",
+      chargeId,
+      existing || null,
+      req.body,
+    );
     await db.commit();
-    return res.status(200).json({ success: true, message: "Maintenance balance updated successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Maintenance balance updated successfully",
+    });
   } catch (error) {
     await db.rollback();
     console.error("UPDATE MAINTENANCE BALANCE ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to update maintenance balance" });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update maintenance balance",
+    });
   }
 };
 
 export const getMaintenanceCharges = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+  if (!errors.isEmpty())
+    return res.status(400).json({ success: false, errors: errors.array() });
 
   const { societyId } = getScope(req);
   if (ensureAdminSociety(res, societyId)) return;
@@ -599,11 +716,11 @@ export const getMaintenanceCharges = async (req, res) => {
        ${where}
        ORDER BY mc.period_month DESC, f.wing, f.flat_no
        LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      [...params, limit, offset],
     );
     const [[{ total }]] = await db.query(
       `SELECT COUNT(*) AS total FROM maintenance_charges mc ${where}`,
-      params
+      params,
     );
     return res.status(200).json({
       success: true,
@@ -612,13 +729,16 @@ export const getMaintenanceCharges = async (req, res) => {
     });
   } catch (error) {
     console.error("GET MAINTENANCE CHARGES ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to fetch maintenance charges" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch maintenance charges" });
   }
 };
 
 export const recordMaintenancePayment = async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+  if (!errors.isEmpty())
+    return res.status(400).json({ success: false, errors: errors.array() });
 
   const { societyId, adminId } = getScope(req);
   if (ensureAdminSociety(res, societyId)) return;
@@ -629,22 +749,31 @@ export const recordMaintenancePayment = async (req, res) => {
       `SELECT id, wing, flat_no, owner_name, maintenance_amount
        FROM flats
        WHERE id = ? AND society_id = ? AND status = 'active'`,
-      [req.body.flat_id, societyId]
+      [req.body.flat_id, societyId],
     );
     if (flats.length === 0) {
       await db.rollback();
-      return res.status(404).json({ success: false, message: "Flat not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Flat not found" });
     }
 
     const maintenancePaidTotalCents = toCents(req.body.maintenance_amount_paid);
     const nocPaidTotalCents = toCents(req.body.noc_amount_paid);
     const interestPaidTotalCents = toCents(req.body.interest_amount_paid);
-    const explicitTotalCents = maintenancePaidTotalCents + nocPaidTotalCents + interestPaidTotalCents;
-    const legacyTotalCents = toCents(req.body.total_amount_paid || req.body.amount);
+    const explicitTotalCents =
+      maintenancePaidTotalCents + nocPaidTotalCents + interestPaidTotalCents;
+    const legacyTotalCents = toCents(
+      req.body.total_amount_paid || req.body.amount,
+    );
     const totalPaidCents = explicitTotalCents || legacyTotalCents;
-    let remainingMaintenanceCents = explicitTotalCents ? maintenancePaidTotalCents : legacyTotalCents;
+    let remainingMaintenanceCents = explicitTotalCents
+      ? maintenancePaidTotalCents
+      : legacyTotalCents;
     let remainingNocCents = explicitTotalCents ? nocPaidTotalCents : 0;
-    let remainingInterestCents = explicitTotalCents ? interestPaidTotalCents : 0;
+    let remainingInterestCents = explicitTotalCents
+      ? interestPaidTotalCents
+      : 0;
     const fromMonth = firstDay(req.body.from_month);
     const toMonth = firstDay(req.body.to_month);
     const billingMonths = req.body.billing_months
@@ -654,11 +783,16 @@ export const recordMaintenancePayment = async (req, res) => {
 
     if (totalPaidCents <= 0) {
       await db.rollback();
-      return res.status(400).json({ success: false, message: "Payment amount is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Payment amount is required" });
     }
     if (fromMonth && toMonth && fromMonth > toMonth) {
       await db.rollback();
-      return res.status(400).json({ success: false, message: "From month cannot be after to month" });
+      return res.status(400).json({
+        success: false,
+        message: "From month cannot be after to month",
+      });
     }
 
     for (const [index, billingMonth] of billingMonths.entries()) {
@@ -666,7 +800,7 @@ export const recordMaintenancePayment = async (req, res) => {
         `SELECT id FROM maintenance_charges
          WHERE society_id = ? AND flat_id = ? AND period_month = ?
          LIMIT 1`,
-        [societyId, req.body.flat_id, billingMonth]
+        [societyId, req.body.flat_id, billingMonth],
       );
 
       if (!existing) {
@@ -676,18 +810,24 @@ export const recordMaintenancePayment = async (req, res) => {
           flatId: req.body.flat_id,
           periodMonth: billingMonth,
           dueDate: defaultDueDate(billingMonth, rule.interest_grace_days),
-          maintenanceCharge: amount(req.body.monthly_maintenance_amount) || Number(flats[0].maintenance_amount || 0),
+          maintenanceCharge:
+            amount(req.body.monthly_maintenance_amount) ||
+            Number(flats[0].maintenance_amount || 0),
           nocCharge: index === 0 ? amount(req.body.noc_amount) : 0,
           interestAmount: index === 0 ? amount(req.body.interest_amount) : 0,
           source: "system",
-          notes: billingMonth > currentMonthStart() ? "Advance payment month" : "Payment-selected billing month",
+          notes:
+            billingMonth > currentMonthStart()
+              ? "Advance payment month"
+              : "Payment-selected billing month",
         });
         await addLedgerEntry({
           societyId,
           adminId,
           flatId: req.body.flat_id,
           chargeId,
-          entryDate: req.body.payment_date || new Date().toISOString().slice(0, 10),
+          entryDate:
+            req.body.payment_date || new Date().toISOString().slice(0, 10),
           periodMonth: billingMonth,
           entryType: "charge",
           description: `Maintenance bill for ${billingMonth.slice(0, 7)}`,
@@ -710,7 +850,10 @@ export const recordMaintenancePayment = async (req, res) => {
         req.body.flat_id,
         req.body.payment_date || null,
         fromCents(totalPaidCents),
-        fromCents(maintenancePaidTotalCents || (explicitTotalCents ? 0 : legacyTotalCents)),
+        fromCents(
+          maintenancePaidTotalCents ||
+            (explicitTotalCents ? 0 : legacyTotalCents),
+        ),
         fromCents(nocPaidTotalCents),
         fromCents(interestPaidTotalCents),
         fromMonth,
@@ -719,7 +862,7 @@ export const recordMaintenancePayment = async (req, res) => {
         req.body.reference_no || null,
         receiptNumber,
         req.body.notes || null,
-      ]
+      ],
     );
 
     const dueParams = [societyId, req.body.flat_id];
@@ -737,19 +880,34 @@ export const recordMaintenancePayment = async (req, res) => {
        FROM maintenance_charges
        ${dueWhere}
        ORDER BY period_month ASC`,
-      dueParams
+      dueParams,
     );
 
     const allocations = [];
     for (const due of dues) {
-      if (remainingMaintenanceCents <= 0 && remainingNocCents <= 0 && remainingInterestCents <= 0) break;
-      const maintenancePaidCents = Math.min(remainingMaintenanceCents, centsFromDb(due.maintenance_balance));
+      if (
+        remainingMaintenanceCents <= 0 &&
+        remainingNocCents <= 0 &&
+        remainingInterestCents <= 0
+      )
+        break;
+      const maintenancePaidCents = Math.min(
+        remainingMaintenanceCents,
+        centsFromDb(due.maintenance_balance),
+      );
       remainingMaintenanceCents -= maintenancePaidCents;
-      const nocPaidCents = Math.min(remainingNocCents, centsFromDb(due.noc_balance));
+      const nocPaidCents = Math.min(
+        remainingNocCents,
+        centsFromDb(due.noc_balance),
+      );
       remainingNocCents -= nocPaidCents;
-      const interestPaidCents = Math.min(remainingInterestCents, centsFromDb(due.interest_balance));
+      const interestPaidCents = Math.min(
+        remainingInterestCents,
+        centsFromDb(due.interest_balance),
+      );
       remainingInterestCents -= interestPaidCents;
-      const allocatedCents = maintenancePaidCents + nocPaidCents + interestPaidCents;
+      const allocatedCents =
+        maintenancePaidCents + nocPaidCents + interestPaidCents;
 
       if (allocatedCents > 0) {
         const maintenancePaid = fromCents(maintenancePaidCents);
@@ -782,13 +940,13 @@ export const recordMaintenancePayment = async (req, res) => {
             allocated,
             allocated,
             due.id,
-          ]
+          ],
         );
         await db.query(
           `INSERT INTO maintenance_payment_allocations
            (payment_id, charge_id, maintenance_amount, noc_amount, interest_amount)
            VALUES (?, ?, ?, ?, ?)`,
-          [payment.insertId, due.id, maintenancePaid, nocPaid, interestPaid]
+          [payment.insertId, due.id, maintenancePaid, nocPaid, interestPaid],
         );
         allocations.push({
           charge_id: due.id,
@@ -804,7 +962,8 @@ export const recordMaintenancePayment = async (req, res) => {
           flatId: req.body.flat_id,
           paymentId: payment.insertId,
           chargeId: due.id,
-          entryDate: req.body.payment_date || new Date().toISOString().slice(0, 10),
+          entryDate:
+            req.body.payment_date || new Date().toISOString().slice(0, 10),
           periodMonth: due.period_month,
           entryType: "payment",
           description: `Payment receipt ${receiptNumber}`,
@@ -813,12 +972,24 @@ export const recordMaintenancePayment = async (req, res) => {
       }
     }
 
-    const unappliedCents = remainingMaintenanceCents + remainingNocCents + remainingInterestCents;
-    await audit(societyId, adminId, "create", "maintenance_payment", payment.insertId, null, req.body);
+    const unappliedCents =
+      remainingMaintenanceCents + remainingNocCents + remainingInterestCents;
+    await audit(
+      societyId,
+      adminId,
+      "create",
+      "maintenance_payment",
+      payment.insertId,
+      null,
+      req.body,
+    );
     await db.commit();
     return res.status(201).json({
       success: true,
-      message: unappliedCents > 0 ? "Payment recorded with unapplied balance" : "Payment recorded successfully",
+      message:
+        unappliedCents > 0
+          ? "Payment recorded with unapplied balance"
+          : "Payment recorded successfully",
       receipt_number: receiptNumber,
       allocations,
       unapplied_amount: fromCents(unappliedCents),
@@ -826,7 +997,9 @@ export const recordMaintenancePayment = async (req, res) => {
   } catch (error) {
     await db.rollback();
     console.error("RECORD MAINTENANCE PAYMENT ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to record payment" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to record payment" });
   }
 };
 
@@ -851,12 +1024,14 @@ export const getMaintenanceBalances = async (req, res) => {
        GROUP BY f.id, f.wing, f.flat_no, f.owner_name
        HAVING total_balance > 0
        ORDER BY total_balance DESC`,
-      [currentMonthStart(), societyId]
+      [currentMonthStart(), societyId],
     );
     return res.status(200).json({ success: true, data: rows });
   } catch (error) {
     console.error("GET MAINTENANCE BALANCES ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to fetch balances" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch balances" });
   }
 };
 
@@ -871,10 +1046,12 @@ export const getFlatMaintenanceDetails = async (req, res) => {
               owner_email, maintenance_amount, occupancy, status
        FROM flats
        WHERE id = ? AND society_id = ?`,
-      [flatId, societyId]
+      [flatId, societyId],
     );
     if (flats.length === 0) {
-      return res.status(404).json({ success: false, message: "Flat not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Flat not found" });
     }
 
     const [monthly] = await db.query(
@@ -885,7 +1062,7 @@ export const getFlatMaintenanceDetails = async (req, res) => {
        FROM maintenance_charges
        WHERE society_id = ? AND flat_id = ? AND period_month <= ?
        ORDER BY period_month DESC`,
-      [societyId, flatId, currentMonthStart()]
+      [societyId, flatId, currentMonthStart()],
     );
 
     const [pendingMonths] = await db.query(
@@ -894,7 +1071,7 @@ export const getFlatMaintenanceDetails = async (req, res) => {
        FROM maintenance_charges
        WHERE society_id = ? AND flat_id = ? AND total_balance > 0 AND period_month <= ?
        ORDER BY period_month ASC`,
-      [societyId, flatId, currentMonthStart()]
+      [societyId, flatId, currentMonthStart()],
     );
 
     const [payments] = await db.query(
@@ -912,7 +1089,7 @@ export const getFlatMaintenanceDetails = async (req, res) => {
                  mp.interest_amount_paid, mp.from_month, mp.to_month,
                  mp.payment_mode, mp.reference_no, mp.notes
        ORDER BY mp.payment_date DESC, mp.id DESC`,
-      [societyId, flatId]
+      [societyId, flatId],
     );
 
     const [ledger] = await db.query(
@@ -921,7 +1098,7 @@ export const getFlatMaintenanceDetails = async (req, res) => {
        FROM maintenance_ledger_entries
        WHERE society_id = ? AND flat_id = ?
        ORDER BY entry_date ASC, id ASC`,
-      [societyId, flatId]
+      [societyId, flatId],
     );
 
     const [[totals]] = await db.query(
@@ -934,7 +1111,7 @@ export const getFlatMaintenanceDetails = async (req, res) => {
               COALESCE(SUM(interest_balance), 0) AS interest_balance
        FROM maintenance_charges
        WHERE society_id = ? AND flat_id = ? AND period_month <= ?`,
-      [societyId, flatId, currentMonthStart()]
+      [societyId, flatId, currentMonthStart()],
     );
 
     return res.status(200).json({
@@ -950,7 +1127,10 @@ export const getFlatMaintenanceDetails = async (req, res) => {
     });
   } catch (error) {
     console.error("GET FLAT MAINTENANCE DETAILS ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to fetch flat maintenance details" });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch flat maintenance details",
+    });
   }
 };
 
@@ -959,34 +1139,124 @@ export const getMaintenanceSummary = async (req, res) => {
   if (ensureAdminSociety(res, societyId)) return;
 
   try {
+    const [[society]] = await db.query(
+      `SELECT s.id, s.society_name, s.registration_number, s.total_flats,
+              COUNT(f.id) AS active_flats,
+              COUNT(CASE WHEN f.occupancy = 'owner' THEN 1 END) AS owner_occupied,
+              COUNT(CASE WHEN f.occupancy = 'tenant' THEN 1 END) AS tenant_occupied
+       FROM societies s
+       LEFT JOIN flats f ON f.society_id = s.id AND f.status = 'active'
+       WHERE s.id = ?
+       GROUP BY s.id, s.society_name, s.registration_number, s.total_flats`,
+      [societyId],
+    );
     const [[summary]] = await db.query(
-      `SELECT COALESCE(SUM(total_due), 0) AS total_billed,
+      `SELECT COALESCE(SUM(maintenance_charge + penalty_charge), 0) AS maintenance_due,
+              COALESCE(SUM(noc_charge), 0) AS noc_due,
+              COALESCE(SUM(interest_amount), 0) AS interest_due,
+              COALESCE(SUM(total_due), 0) AS total_billed,
+              COALESCE(SUM(maintenance_paid), 0) AS maintenance_collected,
+              COALESCE(SUM(noc_paid), 0) AS noc_collected,
+              COALESCE(SUM(interest_paid), 0) AS interest_collected,
               COALESCE(SUM(total_paid), 0) AS total_collected,
-              COALESCE(SUM(total_balance), 0) AS total_outstanding,
+              COALESCE(SUM(maintenance_balance), 0) AS maintenance_outstanding,
+              COALESCE(SUM(noc_balance), 0) AS noc_outstanding,
               COALESCE(SUM(interest_balance), 0) AS interest_outstanding,
-              COUNT(CASE WHEN total_balance > 0 THEN 1 END) AS due_records
+              COALESCE(SUM(total_balance), 0) AS total_outstanding,
+              COUNT(DISTINCT CASE WHEN total_balance > 0 THEN flat_id END) AS flats_with_dues
        FROM maintenance_charges
        WHERE society_id = ? AND period_month <= ?`,
-      [societyId, currentMonthStart()]
+      [societyId, currentMonthStart()],
     );
-    const [recent] = await db.query(
-      `SELECT mc.id, mc.period_month, mc.total_due, mc.total_paid, mc.total_balance,
-              f.wing, f.flat_no, f.owner_name
+    const [recentPayments] = await db.query(
+      `SELECT mp.id, mp.receipt_number, mp.payment_date, mp.amount,
+              mp.maintenance_amount_paid, mp.noc_amount_paid, mp.interest_amount_paid,
+              mp.payment_mode, mp.reference_no, f.wing, f.flat_no, f.owner_name
+       FROM maintenance_payments mp
+       JOIN flats f ON f.id = mp.flat_id
+       WHERE mp.society_id = ?
+       ORDER BY mp.payment_date DESC, mp.id DESC
+       LIMIT 6`,
+      [societyId],
+    );
+    const [activeTenants] = await db.query(
+      `SELECT t.id, t.tenant_name, t.move_in_date, t.noc_charge,
+              f.wing, f.flat_no
+       FROM tenants t
+       JOIN flats f ON f.id = t.flat_id
+       WHERE t.society_id = ? AND t.status = 'active'
+       ORDER BY t.move_in_date DESC, t.id DESC
+       LIMIT 6`,
+      [societyId],
+    );
+    const [[tenantTotal]] = await db.query(
+      `SELECT COUNT(*) AS active_tenants
+       FROM tenants
+       WHERE society_id = ? AND status = 'active'`,
+      [societyId],
+    );
+    const [monthlyCollections] = await db.query(
+      `SELECT DATE_FORMAT(payment_date, '%Y-%m') AS month,
+              SUM(maintenance_amount_paid) AS maintenance_collection,
+              SUM(noc_amount_paid) AS noc_collection,
+              SUM(interest_amount_paid) AS interest_collection,
+              SUM(amount) AS total_collection
+       FROM maintenance_payments
+       WHERE society_id = ?
+         AND payment_date >= DATE_FORMAT(DATE_SUB(CURRENT_DATE, INTERVAL 5 MONTH), '%Y-%m-01')
+       GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
+       ORDER BY month ASC`,
+      [societyId],
+    );
+    const [outstandingDues] = await db.query(
+      `SELECT f.id AS flat_id, f.wing, f.flat_no, f.owner_name,
+              SUM(mc.maintenance_balance) AS maintenance_balance,
+              SUM(mc.noc_balance) AS noc_balance,
+              SUM(mc.interest_balance) AS interest_balance,
+              SUM(mc.total_balance) AS total_balance,
+              MIN(CASE WHEN mc.total_balance > 0 THEN mc.period_month END) AS oldest_due_month
        FROM maintenance_charges mc
        JOIN flats f ON f.id = mc.flat_id
-       WHERE mc.society_id = ? AND mc.period_month <= ?
-       ORDER BY mc.updated_at DESC
-       LIMIT 8`,
-      [societyId, currentMonthStart()]
+       WHERE mc.society_id = ? AND mc.total_balance > 0 AND mc.period_month <= ?
+       GROUP BY f.id, f.wing, f.flat_no, f.owner_name
+       ORDER BY total_balance DESC
+       LIMIT 6`,
+      [societyId, currentMonthStart()],
     );
-    return res.status(200).json({ success: true, data: { summary, recent } });
+
+    const totalFlats = Number(society?.total_flats || 0);
+    const activeFlats = Number(society?.active_flats || 0);
+    const societyStats = {
+      ...society,
+      occupied_flats: activeFlats,
+      vacant_flats: Math.max(totalFlats - activeFlats, 0),
+      active_tenants: Number(tenantTotal?.active_tenants || 0),
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        summary,
+        society: societyStats,
+        recent_payments: recentPayments,
+        active_tenants: activeTenants,
+        monthly_collections: monthlyCollections,
+        outstanding_dues: outstandingDues,
+        notices: [],
+      },
+    });
   } catch (error) {
     console.error("GET MAINTENANCE SUMMARY ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to fetch summary" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch summary" });
   }
 };
 
-const generateMonthlyCharges = async (periodMonth = currentMonthStart(), societyFilter = null) => {
+const generateMonthlyCharges = async (
+  periodMonth = currentMonthStart(),
+  societyFilter = null,
+) => {
   const params = [];
   let where = "WHERE f.status = 'active'";
   if (societyFilter) {
@@ -1015,7 +1285,7 @@ const generateMonthlyCharges = async (periodMonth = currentMonthStart(), society
        GROUP BY society_id
      ) rc ON rc.society_id = f.society_id
      ${where}`,
-    [monthEnd(periodMonth), periodMonth, periodMonth, periodMonth, ...params]
+    [monthEnd(periodMonth), periodMonth, periodMonth, periodMonth, ...params],
   );
 
   let created = 0;
@@ -1025,7 +1295,7 @@ const generateMonthlyCharges = async (periodMonth = currentMonthStart(), society
       `SELECT id FROM maintenance_charges
        WHERE society_id = ? AND flat_id = ? AND period_month = ?
        LIMIT 1`,
-      [flat.society_id, flat.id, periodMonth]
+      [flat.society_id, flat.id, periodMonth],
     );
     if (existing) {
       skipped += 1;
@@ -1059,7 +1329,12 @@ const generateMonthlyCharges = async (periodMonth = currentMonthStart(), society
     created += 1;
   }
 
-  return { period_month: periodMonth, created, skipped, total_flats: flats.length };
+  return {
+    period_month: periodMonth,
+    created,
+    skipped,
+    total_flats: flats.length,
+  };
 };
 
 export const runMonthlyChargeGeneration = async (req, res) => {
@@ -1076,7 +1351,9 @@ export const runMonthlyChargeGeneration = async (req, res) => {
     });
   } catch (error) {
     console.error("RUN MONTHLY CHARGE GENERATION ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to generate monthly charges" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to generate monthly charges" });
   }
 };
 
@@ -1087,7 +1364,7 @@ export const scheduleMonthlyMaintenanceCharges = () => {
     try {
       const result = await generateMonthlyCharges(currentMonthStart());
       console.log(
-        `Monthly maintenance generation: ${result.created} created, ${result.skipped} skipped for ${result.period_month}`
+        `Monthly maintenance generation: ${result.created} created, ${result.skipped} skipped for ${result.period_month}`,
       );
     } catch (error) {
       console.error("MONTHLY MAINTENANCE GENERATION ERROR:", error);
@@ -1105,8 +1382,10 @@ export const getMaintenanceReports = async (req, res) => {
     req.query.month && req.query.year
       ? `${req.query.year}-${String(req.query.month).padStart(2, "0")}-01`
       : null;
-  const from = selectedMonth || (req.query.from ? firstDay(req.query.from) : "1900-01-01");
-  const requestedTo = selectedMonth || (req.query.to ? firstDay(req.query.to) : "2999-12-01");
+  const from =
+    selectedMonth || (req.query.from ? firstDay(req.query.from) : "1900-01-01");
+  const requestedTo =
+    selectedMonth || (req.query.to ? firstDay(req.query.to) : "2999-12-01");
   const to = shouldIncludeFuture(req)
     ? requestedTo
     : requestedTo < currentMonthStart()
@@ -1114,9 +1393,11 @@ export const getMaintenanceReports = async (req, res) => {
       : currentMonthStart();
   const search = String(req.query.search || "").trim();
   const collectionParams = [societyId, from, monthEnd(to)];
-  let collectionWhere = "WHERE mp.society_id = ? AND mp.payment_date BETWEEN ? AND ?";
+  let collectionWhere =
+    "WHERE mp.society_id = ? AND mp.payment_date BETWEEN ? AND ?";
   if (search) {
-    collectionWhere += " AND (f.flat_no LIKE ? OR f.wing LIKE ? OR f.owner_name LIKE ?)";
+    collectionWhere +=
+      " AND (f.flat_no LIKE ? OR f.wing LIKE ? OR f.owner_name LIKE ?)";
     collectionParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
 
@@ -1138,7 +1419,7 @@ export const getMaintenanceReports = async (req, res) => {
        WHERE society_id = ? AND period_month BETWEEN ? AND ?
        GROUP BY period_month
        ORDER BY period_month DESC`,
-      [societyId, from, to]
+      [societyId, from, to],
     );
     const [payments] = await db.query(
       `SELECT payment_mode, COUNT(*) AS count,
@@ -1149,7 +1430,7 @@ export const getMaintenanceReports = async (req, res) => {
        FROM maintenance_payments
        WHERE society_id = ? AND payment_date BETWEEN ? AND ?
        GROUP BY payment_mode`,
-      [societyId, from, monthEnd(to)]
+      [societyId, from, monthEnd(to)],
     );
     const [collections] = await db.query(
       `SELECT mp.id, mp.payment_date, mp.receipt_number, mp.amount, mp.payment_mode,
@@ -1165,7 +1446,7 @@ export const getMaintenanceReports = async (req, res) => {
                 mp.maintenance_amount_paid, mp.noc_amount_paid, mp.interest_amount_paid,
                 mp.from_month, mp.to_month, mp.reference_no, mp.notes, f.wing, f.flat_no, f.owner_name
        ORDER BY mp.payment_date DESC, mp.id DESC`,
-      collectionParams
+      collectionParams,
     );
     const [[collectionTotal]] = await db.query(
       `SELECT COALESCE(SUM(mp.maintenance_amount_paid), 0) AS maintenance_collection,
@@ -1177,15 +1458,22 @@ export const getMaintenanceReports = async (req, res) => {
        FROM maintenance_payments mp
        JOIN flats f ON f.id = mp.flat_id
        ${collectionWhere}`,
-      collectionParams
+      collectionParams,
     );
     return res.status(200).json({
       success: true,
-      data: { monthly, payments, collections, collection_total: collectionTotal },
+      data: {
+        monthly,
+        payments,
+        collections,
+        collection_total: collectionTotal,
+      },
     });
   } catch (error) {
     console.error("GET MAINTENANCE REPORTS ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to fetch reports" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch reports" });
   }
 };
 
@@ -1211,7 +1499,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
        WHERE mc.society_id = ? AND mc.period_month BETWEEN ? AND ?
        GROUP BY f.id, f.wing, f.flat_no, f.owner_name
        ORDER BY f.wing, f.flat_no`,
-      [societyId, from, to]
+      [societyId, from, to],
     );
     return rows;
   }
@@ -1229,7 +1517,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
        WHERE mc.society_id = ? AND mc.total_balance > 0 AND mc.period_month <= ?
        GROUP BY f.id, f.wing, f.flat_no, f.owner_name
        ORDER BY total_balance DESC`,
-      [societyId, to]
+      [societyId, to],
     );
     return rows;
   }
@@ -1250,7 +1538,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
                 mp.maintenance_amount_paid, mp.noc_amount_paid, mp.interest_amount_paid,
                 mp.amount, mp.from_month, mp.to_month, mp.payment_mode, mp.reference_no, mp.notes
        ORDER BY mp.payment_date DESC, mp.id DESC`,
-      [societyId, from, monthEnd(to)]
+      [societyId, from, monthEnd(to)],
     );
     return rows;
   }
@@ -1265,7 +1553,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
        WHERE mc.society_id = ? AND mc.period_month BETWEEN ? AND ?
              AND (mc.interest_amount > 0 OR mc.penalty_charge > 0)
        ORDER BY mc.period_month DESC, f.wing, f.flat_no`,
-      [societyId, from, to]
+      [societyId, from, to],
     );
     return rows;
   }
@@ -1279,7 +1567,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
        WHERE mc.society_id = ? AND mc.period_month BETWEEN ? AND ?
              AND mc.noc_charge > 0
        ORDER BY mc.period_month DESC, f.wing, f.flat_no`,
-      [societyId, from, to]
+      [societyId, from, to],
     );
     return rows;
   }
@@ -1294,7 +1582,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
               SUM(total_balance) AS outstanding_balances
        FROM maintenance_charges
        WHERE society_id = ? AND period_month BETWEEN ? AND ?`,
-      [from, societyId, from, to]
+      [from, societyId, from, to],
     );
     const [monthWise] = await db.query(
       `SELECT DATE_FORMAT(period_month, '%Y-%m') AS month,
@@ -1307,7 +1595,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
        WHERE society_id = ? AND period_month BETWEEN ? AND ?
        GROUP BY period_month
        ORDER BY period_month`,
-      [societyId, from, to]
+      [societyId, from, to],
     );
     const [flatWise] = await db.query(
       `SELECT f.wing, f.flat_no, f.owner_name,
@@ -1324,7 +1612,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
        WHERE mc.society_id = ? AND mc.period_month BETWEEN ? AND ?
        GROUP BY f.id, f.wing, f.flat_no, f.owner_name
        ORDER BY f.wing, f.flat_no`,
-      [societyId, from, to]
+      [societyId, from, to],
     );
     return [
       { section: "Year Summary", ...summary },
@@ -1340,7 +1628,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
        FROM maintenance_ledger_entries
        WHERE society_id = ? AND flat_id = ?
        ORDER BY entry_date ASC, id ASC`,
-      [societyId, flatId]
+      [societyId, flatId],
     );
     return rows;
   }
@@ -1363,7 +1651,7 @@ const reportRows = async (societyId, type, from, to, flatId = null) => {
      WHERE mc.society_id = ? AND mc.period_month BETWEEN ? AND ?
      GROUP BY mc.period_month
      ORDER BY mc.period_month DESC`,
-    [societyId, from, to]
+    [societyId, from, to],
   );
   return rows;
 };
@@ -1378,8 +1666,10 @@ export const exportMaintenanceReport = async (req, res) => {
     req.query.month && req.query.year
       ? `${req.query.year}-${String(req.query.month).padStart(2, "0")}-01`
       : null;
-  const from = selectedMonth || (req.query.from ? firstDay(req.query.from) : "1900-01-01");
-  const requestedTo = selectedMonth || (req.query.to ? firstDay(req.query.to) : "2999-12-01");
+  const from =
+    selectedMonth || (req.query.from ? firstDay(req.query.from) : "1900-01-01");
+  const requestedTo =
+    selectedMonth || (req.query.to ? firstDay(req.query.to) : "2999-12-01");
   const to = shouldIncludeFuture(req)
     ? requestedTo
     : requestedTo < currentMonthStart()
@@ -1389,15 +1679,21 @@ export const exportMaintenanceReport = async (req, res) => {
 
   try {
     if (type === "flat-ledger" && !flatId) {
-      return res.status(400).json({ success: false, message: "flat_id is required for flat ledger export" });
+      return res.status(400).json({
+        success: false,
+        message: "flat_id is required for flat ledger export",
+      });
     }
     const rows = await reportRows(societyId, type, from, to, flatId);
     const fileName = `maintenance-${type}-${new Date().toISOString().slice(0, 10)}`;
-    if (format === "pdf") return setPdfResponse(res, fileName, `Maintenance ${type} report`, rows);
+    if (format === "pdf")
+      return setPdfResponse(res, fileName, `Maintenance ${type} report`, rows);
     return setExcelResponse(res, fileName, rows, "Maintenance");
   } catch (error) {
     console.error("EXPORT MAINTENANCE REPORT ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to export maintenance report" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to export maintenance report" });
   }
 };
 
@@ -1420,7 +1716,7 @@ export const recalculateInterest = async (req, res) => {
               maintenance_paid, noc_balance, interest_paid
        FROM maintenance_charges
        WHERE society_id = ? AND status <> 'paid' AND period_month <= ?`,
-      [societyId, currentMonthStart()]
+      [societyId, currentMonthStart()],
     );
 
     let updated = 0;
@@ -1429,22 +1725,31 @@ export const recalculateInterest = async (req, res) => {
       const period = new Date(due.period_month);
       const monthsLate = Math.max(
         0,
-        (asOf.getFullYear() - period.getFullYear()) * 12 + (asOf.getMonth() - period.getMonth())
+        (asOf.getFullYear() - period.getFullYear()) * 12 +
+          (asOf.getMonth() - period.getMonth()),
       );
       const graceMet = asOf.getDate() > Number(rule.interest_grace_days || 0);
       if (!monthsLate || !graceMet) continue;
 
-      let base = Number(due.maintenance_charge) + Number(due.penalty_charge || 0) - Number(due.maintenance_paid || 0);
+      let base =
+        Number(due.maintenance_charge) +
+        Number(due.penalty_charge || 0) -
+        Number(due.maintenance_paid || 0);
       if (rule.interest_apply_to === "total_outstanding") {
         base += Number(due.noc_charge || 0);
       }
       const rate = Number(rule.interest_rate_monthly || 0) / 100;
-      let interest = rule.interest_method === "compound_monthly"
-        ? base * (Math.pow(1 + rate, monthsLate) - 1)
-        : base * rate * monthsLate;
-      if (rule.interest_method === "fixed_penalty") interest = Number(rule.interest_rate_monthly || 0) * monthsLate;
+      let interest =
+        rule.interest_method === "compound_monthly"
+          ? base * (Math.pow(1 + rate, monthsLate) - 1)
+          : base * rate * monthsLate;
+      if (rule.interest_method === "fixed_penalty")
+        interest = Number(rule.interest_rate_monthly || 0) * monthsLate;
       interest = Math.max(roundByRule(interest, rule.rounding_mode), 0);
-      const interestBalance = Math.max(interest - Number(due.interest_paid || 0), 0);
+      const interestBalance = Math.max(
+        interest - Number(due.interest_paid || 0),
+        0,
+      );
 
       await db.query(
         `UPDATE maintenance_charges
@@ -1454,20 +1759,39 @@ export const recalculateInterest = async (req, res) => {
              total_balance = maintenance_balance + noc_balance + ?,
              status = CASE WHEN maintenance_balance + noc_balance + ? <= 0 THEN 'paid' ELSE status END
          WHERE id = ?`,
-        [interest, interest, interestBalance, interestBalance, interestBalance, due.id]
+        [
+          interest,
+          interest,
+          interestBalance,
+          interestBalance,
+          interestBalance,
+          due.id,
+        ],
       );
       updated += 1;
     }
-    await audit(societyId, adminId, "recalculate", "maintenance_interest", null, null, {
-      as_of: asOf.toISOString().slice(0, 10),
-      updated,
-    });
+    await audit(
+      societyId,
+      adminId,
+      "recalculate",
+      "maintenance_interest",
+      null,
+      null,
+      {
+        as_of: asOf.toISOString().slice(0, 10),
+        updated,
+      },
+    );
     await db.commit();
-    return res.status(200).json({ success: true, message: "Interest recalculated", updated });
+    return res
+      .status(200)
+      .json({ success: true, message: "Interest recalculated", updated });
   } catch (error) {
     await db.rollback();
     console.error("RECALCULATE INTEREST ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to recalculate interest" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to recalculate interest" });
   }
 };
 
@@ -1478,9 +1802,15 @@ const sheetRows = (buffer, originalname) => {
     raw: false,
   });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }).map((row) =>
-    row.map((cell) => (cell instanceof Date ? cell.toISOString().slice(0, 10) : String(cell).trim()))
-  );
+  return XLSX.utils
+    .sheet_to_json(sheet, { header: 1, defval: "" })
+    .map((row) =>
+      row.map((cell) =>
+        cell instanceof Date
+          ? cell.toISOString().slice(0, 10)
+          : String(cell).trim(),
+      ),
+    );
 };
 
 const ownerFromRows = (rows) => {
@@ -1495,7 +1825,10 @@ const ownerFromRows = (rows) => {
 const parseImportRows = (rows) => {
   return rows
     .map((row, index) => ({ row, index }))
-    .filter(({ row }) => /^\d+$/.test(String(row[0] || "").trim()) && firstDay(row[1]))
+    .filter(
+      ({ row }) =>
+        /^\d+$/.test(String(row[0] || "").trim()) && firstDay(row[1]),
+    )
     .map(({ row, index }) => ({
       source_row: index + 1,
       month: firstDay(row[1]),
@@ -1514,7 +1847,10 @@ const parseImportRows = (rows) => {
 export const importMaintenanceExcel = async (req, res) => {
   const { societyId, adminId } = getScope(req);
   if (ensureAdminSociety(res, societyId)) return;
-  if (!req.file) return res.status(400).json({ success: false, message: "Excel file is required" });
+  if (!req.file)
+    return res
+      .status(400)
+      .json({ success: false, message: "Excel file is required" });
 
   try {
     const rows = sheetRows(req.file.buffer, req.file.originalname);
@@ -1530,17 +1866,26 @@ export const importMaintenanceExcel = async (req, res) => {
     }
 
     const [flats] = flatId
-      ? await db.query(`SELECT id FROM flats WHERE id = ? AND society_id = ?`, [flatId, societyId])
+      ? await db.query(`SELECT id FROM flats WHERE id = ? AND society_id = ?`, [
+          flatId,
+          societyId,
+        ])
       : await db.query(
           `SELECT id FROM flats WHERE society_id = ? AND owner_name LIKE ? ORDER BY status = 'active' DESC LIMIT 1`,
-          [societyId, `%${ownerName}%`]
+          [societyId, `%${ownerName}%`],
         );
 
     if (flats.length === 0) {
-      return res.status(404).json({ success: false, message: "Matching flat not found for import" });
+      return res.status(404).json({
+        success: false,
+        message: "Matching flat not found for import",
+      });
     }
     if (importRows.length === 0) {
-      return res.status(400).json({ success: false, message: "No maintenance rows found in Excel" });
+      return res.status(400).json({
+        success: false,
+        message: "No maintenance rows found in Excel",
+      });
     }
 
     await db.beginTransaction();
@@ -1548,7 +1893,13 @@ export const importMaintenanceExcel = async (req, res) => {
       `INSERT INTO maintenance_import_batches
        (batch_code, society_id, admin_id, file_name, total_rows, status)
        VALUES (?, ?, ?, ?, ?, 'processing')`,
-      [prefixedNanoId("MIB"), societyId, adminId, req.file.originalname, importRows.length]
+      [
+        prefixedNanoId("MIB"),
+        societyId,
+        adminId,
+        req.file.originalname,
+        importRows.length,
+      ],
     );
 
     let inserted = 0;
@@ -1560,9 +1911,10 @@ export const importMaintenanceExcel = async (req, res) => {
           `SELECT id FROM maintenance_charges
            WHERE society_id = ? AND flat_id = ? AND period_month = ?
            LIMIT 1`,
-          [societyId, flats[0].id, row.month]
+          [societyId, flats[0].id, row.month],
         );
-        const maintenanceCharge = row.maintenance_charge || row.total_maintenance_due || 0;
+        const maintenanceCharge =
+          row.maintenance_charge || row.total_maintenance_due || 0;
         const { chargeId, totalDue } = await upsertCharge({
           societyId,
           adminId,
@@ -1597,7 +1949,7 @@ export const importMaintenanceExcel = async (req, res) => {
           `INSERT INTO maintenance_import_errors
            (batch_id, row_no, status, raw_data)
            VALUES (?, ?, 'success', ?)`,
-          [batch.insertId, row.source_row, JSON.stringify(row)]
+          [batch.insertId, row.source_row, JSON.stringify(row)],
         );
       } catch (error) {
         failed += 1;
@@ -1605,7 +1957,7 @@ export const importMaintenanceExcel = async (req, res) => {
           `INSERT INTO maintenance_import_errors
            (batch_id, row_no, status, error_message, raw_data)
            VALUES (?, ?, 'failed', ?, ?)`,
-          [batch.insertId, row.source_row, error.message, JSON.stringify(row)]
+          [batch.insertId, row.source_row, error.message, JSON.stringify(row)],
         );
       }
     }
@@ -1614,14 +1966,28 @@ export const importMaintenanceExcel = async (req, res) => {
       `UPDATE maintenance_import_batches
        SET inserted_rows = ?, updated_rows = ?, failed_rows = ?, status = ?
        WHERE id = ?`,
-      [inserted, updated, failed, failed ? "completed_with_errors" : "completed", batch.insertId]
+      [
+        inserted,
+        updated,
+        failed,
+        failed ? "completed_with_errors" : "completed",
+        batch.insertId,
+      ],
     );
-    await audit(societyId, adminId, "import", "maintenance_import_batch", batch.insertId, null, {
-      file: req.file.originalname,
-      inserted,
-      updated,
-      failed,
-    });
+    await audit(
+      societyId,
+      adminId,
+      "import",
+      "maintenance_import_batch",
+      batch.insertId,
+      null,
+      {
+        file: req.file.originalname,
+        inserted,
+        updated,
+        failed,
+      },
+    );
     await db.commit();
     return res.status(201).json({
       success: true,
@@ -1637,7 +2003,10 @@ export const importMaintenanceExcel = async (req, res) => {
   } catch (error) {
     await db.rollback();
     console.error("IMPORT MAINTENANCE EXCEL ERROR:", error);
-    return res.status(500).json({ success: false, message: error.message || "Failed to import maintenance Excel" });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to import maintenance Excel",
+    });
   }
 };
 
@@ -1653,11 +2022,13 @@ export const getImportBatches = async (req, res) => {
        WHERE society_id = ?
        ORDER BY created_at DESC
        LIMIT 20`,
-      [societyId]
+      [societyId],
     );
     return res.status(200).json({ success: true, data: rows });
   } catch (error) {
     console.error("GET IMPORT BATCHES ERROR:", error);
-    return res.status(500).json({ success: false, message: "Failed to fetch import logs" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch import logs" });
   }
 };

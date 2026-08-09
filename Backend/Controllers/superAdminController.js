@@ -73,11 +73,13 @@ export const loginUser = async (req, res) => {
     const table = isSuperAdmin ? "super_admins" : "admins";
 
     const selectQuery = isSuperAdmin
-      ? `SELECT id, name, email, password, 'super_admin' AS role
+      ? `SELECT id, name, email, phone, password, status, previous_login_at,
+                last_login_at, 'super_admin' AS role
          FROM super_admins
          WHERE email = ? AND status = 'active'
          LIMIT 1`
-      : `SELECT id, society_id, name, email, password, role
+      : `SELECT id, society_id, name, email, phone, password, role, status,
+                password_must_change, previous_login_at, last_login_at
          FROM admins
          WHERE email = ? AND status = 'active'
          LIMIT 1`;
@@ -128,7 +130,9 @@ export const loginUser = async (req, res) => {
     /* 💾 Save refresh token + last login */
     await super_admins.query(
       `UPDATE ${table}
-       SET refresh_token = ?, last_login_at = NOW()
+       SET refresh_token = ?,
+           previous_login_at = last_login_at,
+           last_login_at = NOW()
        WHERE id = ?`,
       [refreshToken, user.id]
     );
@@ -141,7 +145,12 @@ export const loginUser = async (req, res) => {
         society_id: user.society_id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
+        status: user.status,
+        last_login_at: user.previous_login_at,
+        current_login_at: new Date().toISOString(),
+        must_change_password: Boolean(user.password_must_change),
       },
       tokens: {
         accessToken,
