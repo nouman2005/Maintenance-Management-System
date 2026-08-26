@@ -3,12 +3,19 @@ import toast from "react-hot-toast";
 import { Eye, Home, RefreshCw, Trash2 } from "lucide-react";
 import { flatDeactivate, getFlatsPaginated } from "../../../api/flats.api";
 import FlatDetailsModal from "./FlatDetailsModal";
+import Dropdown from "../../ui/Dropdown";
 
 const money = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+const occupancyOptions = [
+  { value: "", label: "All occupancy" },
+  { value: "owner", label: "Owner" },
+  { value: "tenant", label: "Tenant" },
+];
 
 function FlatsDetails() {
   const [flats, setFlats] = useState([]);
@@ -73,17 +80,15 @@ function FlatsDetails() {
         </div>
 
         <div className='flex flex-wrap items-center gap-2'>
-          <select
+          <Dropdown
             value={occupancy}
-            onChange={(e) => {
+            onChange={(value) => {
               setPage(1);
-              setOccupancy(e.target.value);
+              setOccupancy(value);
             }}
-            className='h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-            <option value=''>All occupancy</option>
-            <option value='owner'>Owner</option>
-            <option value='tenant'>Tenant</option>
-          </select>
+            options={occupancyOptions}
+            className='w-44'
+          />
           <button
             onClick={fetchFlats}
             className='inline-flex h-10 w-10 items-center justify-center rounded-md bg-slate-950 text-white transition hover:bg-slate-800'

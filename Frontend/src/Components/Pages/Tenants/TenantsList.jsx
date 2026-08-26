@@ -3,12 +3,18 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Eye, RefreshCw, Trash2, UserRound } from "lucide-react";
 import { deactivateTenant, getTenants } from "../../../api/tenants.api";
+import Dropdown from "../../ui/Dropdown";
 
 const money = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+const tenantStatusOptions = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
 
 function TenantList() {
   const [tenants, setTenants] = useState([]);
@@ -73,16 +79,15 @@ function TenantList() {
         </div>
 
         <div className='flex flex-wrap items-center gap-2'>
-          <select
+          <Dropdown
             value={status}
-            onChange={(e) => {
+            onChange={(value) => {
               setPage(1);
-              setStatus(e.target.value);
+              setStatus(value);
             }}
-            className='h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-            <option value='active'>Active</option>
-            <option value='inactive'>Inactive</option>
-          </select>
+            options={tenantStatusOptions}
+            className='w-36'
+          />
           <button
             onClick={fetchTenants}
             className='inline-flex h-10 w-10 items-center justify-center rounded-md bg-slate-950 text-white transition hover:bg-slate-800'

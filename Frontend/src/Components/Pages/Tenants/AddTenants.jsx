@@ -4,6 +4,7 @@ import { BadgeIndianRupee, CalendarDays, Save, UserRound } from "lucide-react";
 import { getFlatsPaginated } from "../../../api/flats.api";
 import { getMaintenanceSettings } from "../../../api/maintenanceSettings.api";
 import { addTenant } from "../../../api/tenants.api";
+import Dropdown from "../../ui/Dropdown";
 
 const initialForm = {
   flat_id: "",
@@ -45,6 +46,16 @@ function AddTenants() {
   );
 
   const totalCharge = Number(selectedFlat?.maintenance_amount || 0) + nocCharge;
+  const flatOptions = useMemo(
+    () =>
+      availableFlats.map((flat) => ({
+        value: flat.id,
+        label: `${flat.wing}-${flat.flat_no} | ${flat.owner_name} | ${money(
+          flat.maintenance_amount
+        )}`,
+      })),
+    [availableFlats]
+  );
 
   const loadMeta = async () => {
     setMetaLoading(true);
@@ -120,23 +131,21 @@ function AddTenants() {
               <span className='mb-1.5 block text-sm font-medium text-slate-600'>
                 Available Flat
               </span>
-              <select
+              <Dropdown
                 name='flat_id'
                 value={formData.flat_id}
-                onChange={handleChange}
+                onChange={(value) =>
+                  handleChange({ target: { name: "flat_id", value } })
+                }
                 required
                 disabled={metaLoading}
-                className='h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-                <option value=''>
-                  {metaLoading ? "Loading flats..." : "Select flat"}
-                </option>
-                {availableFlats.map((flat) => (
-                  <option key={flat.id} value={flat.id}>
-                    {flat.wing}-{flat.flat_no} | {flat.owner_name} |{" "}
-                    {money(flat.maintenance_amount)}
-                  </option>
-                ))}
-              </select>
+                loading={metaLoading}
+                options={flatOptions}
+                placeholder='Select flat'
+                loadingMessage='Loading flats...'
+                emptyMessage='No owner-occupied flats available'
+                searchable
+              />
             </label>
 
             <Field

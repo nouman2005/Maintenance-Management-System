@@ -29,6 +29,7 @@ import {
   exportMaintenanceReport,
   saveMaintenanceRule,
 } from "../../../api/maintenance.api";
+import Dropdown from "../../ui/Dropdown";
 
 const money = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN", {
@@ -88,6 +89,34 @@ const blankPayment = {
   to_month: thisMonth,
 };
 
+const paymentModeOptions = [
+  { value: "cash", label: "Cash" },
+  { value: "cheque", label: "Cheque" },
+  { value: "upi", label: "UPI" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "card", label: "Card" },
+  { value: "adjustment", label: "Adjustment" },
+];
+
+const interestMethodOptions = [
+  { value: "simple_monthly", label: "Simple Monthly" },
+  { value: "compound_monthly", label: "Compound Monthly" },
+  { value: "fixed_penalty", label: "Fixed Penalty" },
+];
+
+const interestApplyOptions = [
+  { value: "maintenance_only", label: "Maintenance Only" },
+  { value: "maintenance_and_penalties", label: "Maintenance + Penalties" },
+  { value: "total_outstanding", label: "Total Outstanding" },
+];
+
+const roundingModeOptions = [
+  { value: "nearest", label: "Round Nearest" },
+  { value: "floor", label: "Round Down" },
+  { value: "ceil", label: "Round Up" },
+  { value: "none", label: "No Rounding" },
+];
+
 function Stat({ label, value }) {
   return (
     <div className='rounded-lg border border-slate-200 bg-white p-4 shadow-sm'>
@@ -98,19 +127,21 @@ function Stat({ label, value }) {
 }
 
 function FlatSelect({ flats, value, onChange, required = true }) {
+  const flatOptions = flats.map((flat) => ({
+    value: flat.id,
+    label: `${flat.wing}-${flat.flat_no} | ${flat.owner_name}`,
+  }));
+
   return (
-    <select
+    <Dropdown
       value={value}
       required={required}
-      onChange={(e) => onChange(e.target.value)}
-      className='h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-      <option value=''>Select flat</option>
-      {flats.map((flat) => (
-        <option key={flat.id} value={flat.id}>
-          {flat.wing}-{flat.flat_no} | {flat.owner_name}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      options={flatOptions}
+      placeholder='Select flat'
+      emptyMessage='No flats available'
+      searchable
+    />
   );
 }
 
@@ -690,17 +721,13 @@ function MaintenanceManagement() {
                 onChange={(e) => setPaymentForm({ ...paymentForm, payment_date: e.target.value })}
                 className='h-11 rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'
               />
-              <select
+              <Dropdown
                 value={paymentForm.payment_mode}
-                onChange={(e) => setPaymentForm({ ...paymentForm, payment_mode: e.target.value })}
-                className='h-11 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-                <option value='cash'>Cash</option>
-                <option value='cheque'>Cheque</option>
-                <option value='upi'>UPI</option>
-                <option value='bank_transfer'>Bank Transfer</option>
-                <option value='card'>Card</option>
-                <option value='adjustment'>Adjustment</option>
-              </select>
+                onChange={(value) =>
+                  setPaymentForm({ ...paymentForm, payment_mode: value })
+                }
+                options={paymentModeOptions}
+              />
               <input
                 placeholder='Transaction reference'
                 value={paymentForm.reference_no}
@@ -1017,31 +1044,27 @@ function MaintenanceManagement() {
                 placeholder='Grace days'
                 className='h-11 rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'
               />
-              <select
+              <Dropdown
                 value={ruleForm.interest_method}
-                onChange={(e) => setRuleForm({ ...ruleForm, interest_method: e.target.value })}
-                className='h-11 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-                <option value='simple_monthly'>Simple Monthly</option>
-                <option value='compound_monthly'>Compound Monthly</option>
-                <option value='fixed_penalty'>Fixed Penalty</option>
-              </select>
-              <select
+                onChange={(value) =>
+                  setRuleForm({ ...ruleForm, interest_method: value })
+                }
+                options={interestMethodOptions}
+              />
+              <Dropdown
                 value={ruleForm.interest_apply_to}
-                onChange={(e) => setRuleForm({ ...ruleForm, interest_apply_to: e.target.value })}
-                className='h-11 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-                <option value='maintenance_only'>Maintenance Only</option>
-                <option value='maintenance_and_penalties'>Maintenance + Penalties</option>
-                <option value='total_outstanding'>Total Outstanding</option>
-              </select>
-              <select
+                onChange={(value) =>
+                  setRuleForm({ ...ruleForm, interest_apply_to: value })
+                }
+                options={interestApplyOptions}
+              />
+              <Dropdown
                 value={ruleForm.rounding_mode}
-                onChange={(e) => setRuleForm({ ...ruleForm, rounding_mode: e.target.value })}
-                className='h-11 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-                <option value='nearest'>Round Nearest</option>
-                <option value='floor'>Round Down</option>
-                <option value='ceil'>Round Up</option>
-                <option value='none'>No Rounding</option>
-              </select>
+                onChange={(value) =>
+                  setRuleForm({ ...ruleForm, rounding_mode: value })
+                }
+                options={roundingModeOptions}
+              />
               <input
                 type='date'
                 value={ruleForm.effective_from}

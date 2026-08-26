@@ -13,6 +13,7 @@ import {
   UserRoundCog,
 } from "lucide-react";
 import { loginUser } from "../redux/slices/authSlice";
+import Dropdown from "./ui/Dropdown";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -21,6 +22,11 @@ const initialForm = {
   email: "",
   password: "",
 };
+
+const roleOptions = [
+  { value: "super_admin", label: "Super Admin" },
+  { value: "admin", label: "Admin" },
+];
 
 const validateLogin = (form) => {
   const errors = {};
@@ -186,17 +192,16 @@ function Login() {
                   <UserRoundCog size={16} />
                   Account type <span className='text-red-600'>*</span>
                 </span>
-                <select
+                <Dropdown
                   value={form.role}
-                  onChange={(event) => updateField("role", event.target.value)}
-                  onBlur={() => markTouched("role")}
-                  aria-invalid={Boolean(showError("role"))}
-                  aria-describedby={showError("role") ? "role-error" : undefined}
-                  className='h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition hover:border-slate-400 focus:border-sky-600 focus:ring-4 focus:ring-sky-100'>
-                  <option value='super_admin'>Super Admin</option>
-                  <option value='admin'>Admin</option>
-                </select>
-                <FieldError id='role-error'>{showError("role")}</FieldError>
+                  onChange={(value) => {
+                    updateField("role", value);
+                    markTouched("role");
+                  }}
+                  options={roleOptions}
+                  error={showError("role")}
+                  required
+                />
               </label>
 
               <label className='block'>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import toast from "react-hot-toast";
 import { Save, Settings } from "lucide-react";
 import { addMaintenanceSetting } from "../../../api/maintenanceSettings.api";
+import Dropdown from "../../ui/Dropdown";
 
 const settingOptions = [
   { value: "base_maintenance", label: "Base Maintenance" },
@@ -9,6 +10,12 @@ const settingOptions = [
   { value: "late_fee", label: "Late Fee" },
   { value: "parking_fee", label: "Parking Fee" },
   { value: "noc_charge", label: "NOC Charge" },
+];
+
+const valueTypeOptions = [
+  { value: "fixed", label: "Fixed" },
+  { value: "percentage", label: "Percentage" },
+  { value: "per_sqft", label: "Per Sqft" },
 ];
 
 const initialForm = {
@@ -79,17 +86,14 @@ function AddMaintenanceSetting() {
             <span className='mb-1.5 block text-sm font-medium text-slate-600'>
               Charge Type
             </span>
-            <select
+            <Dropdown
               name='setting_key'
               value={form.setting_key}
-              onChange={handleChange}
-              className='h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-              {settingOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={(value) =>
+                handleChange({ target: { name: "setting_key", value } })
+              }
+              options={settingOptions}
+            />
           </label>
 
           <label className='block'>
@@ -113,15 +117,14 @@ function AddMaintenanceSetting() {
             <span className='mb-1.5 block text-sm font-medium text-slate-600'>
               Value Type
             </span>
-            <select
+            <Dropdown
               name='value_type'
               value={form.value_type}
-              onChange={handleChange}
-              className='h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-              <option value='fixed'>Fixed</option>
-              <option value='percentage'>Percentage</option>
-              <option value='per_sqft'>Per Sqft</option>
-            </select>
+              onChange={(value) =>
+                handleChange({ target: { name: "value_type", value } })
+              }
+              options={valueTypeOptions}
+            />
           </label>
 
           <label className='block'>

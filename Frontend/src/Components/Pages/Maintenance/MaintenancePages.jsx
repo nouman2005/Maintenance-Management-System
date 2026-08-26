@@ -18,6 +18,7 @@ import {
   payMaintenance,
   updateMaintenanceBalance,
 } from "../../../api/maintenance.api";
+import Dropdown from "../../ui/Dropdown";
 
 const today = new Date().toISOString().slice(0, 10);
 const thisMonth = new Date().toISOString().slice(0, 7);
@@ -42,6 +43,25 @@ const downloadBlob = (blob, fileName) => {
 
 const flatLabel = (flat) =>
   flat ? `${flat.wing}-${flat.flat_no}${flat.owner_name ? ` | ${flat.owner_name}` : ""}` : "";
+
+const paymentModeOptions = [
+  { value: "cash", label: "Cash" },
+  { value: "upi", label: "UPI" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "cheque", label: "Cheque" },
+  { value: "card", label: "Card" },
+  { value: "adjustment", label: "Adjustment" },
+];
+
+const monthOptions = Array.from({ length: 12 }, (_, index) => {
+  const value = String(index + 1).padStart(2, "0");
+  return {
+    value,
+    label: new Date(2024, index, 1).toLocaleDateString("en-IN", {
+      month: "long",
+    }),
+  };
+});
 
 function PageHeader({ title, subtitle, onRefresh }) {
   return (
@@ -73,19 +93,21 @@ function Field({ label, children }) {
 }
 
 function FlatSelect({ flats, value, onChange }) {
+  const flatOptions = flats.map((flat) => ({
+    value: flat.id,
+    label: flatLabel(flat),
+  }));
+
   return (
-    <select
+    <Dropdown
       value={value}
       required
-      onChange={(e) => onChange(e.target.value)}
-      className='h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-      <option value=''>Select flat</option>
-      {flats.map((flat) => (
-        <option key={flat.id} value={flat.id}>
-          {flatLabel(flat)}
-        </option>
-      ))}
-    </select>
+      onChange={onChange}
+      options={flatOptions}
+      placeholder='Select flat'
+      emptyMessage='No flats available'
+      searchable
+    />
   );
 }
 
@@ -430,17 +452,11 @@ export function PayMaintenancePage() {
             />
           </Field>
           <Field label='Payment Method'>
-            <select
+            <Dropdown
               value={form.payment_mode}
-              onChange={(e) => setForm({ ...form, payment_mode: e.target.value })}
-              className='h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-              <option value='cash'>Cash</option>
-              <option value='upi'>UPI</option>
-              <option value='bank_transfer'>Bank Transfer</option>
-              <option value='cheque'>Cheque</option>
-              <option value='card'>Card</option>
-              <option value='adjustment'>Adjustment</option>
-            </select>
+              onChange={(value) => setForm({ ...form, payment_mode: value })}
+              options={paymentModeOptions}
+            />
           </Field>
           <Field label='Transaction Reference Number'>
             <input
@@ -559,19 +575,11 @@ export function MonthlyMaintenanceCollectionReportPage() {
 
       <div className='rounded-lg border border-slate-200 bg-white p-4 shadow-sm'>
         <div className='grid gap-3 md:grid-cols-[160px_160px_1fr_auto]'>
-          <select
+          <Dropdown
             value={filters.month}
-            onChange={(e) => setFilters({ ...filters, month: e.target.value })}
-            className='h-11 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100'>
-            {Array.from({ length: 12 }, (_, index) => {
-              const value = String(index + 1).padStart(2, "0");
-              return (
-                <option key={value} value={value}>
-                  {new Date(2024, index, 1).toLocaleDateString("en-IN", { month: "long" })}
-                </option>
-              );
-            })}
-          </select>
+            onChange={(value) => setFilters({ ...filters, month: value })}
+            options={monthOptions}
+          />
           <input
             type='number'
             min='2000'

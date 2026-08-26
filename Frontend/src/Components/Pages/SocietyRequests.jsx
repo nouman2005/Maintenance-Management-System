@@ -6,6 +6,13 @@ import {
   getSocietyRegistrationRequests,
   rejectSocietyRegistrationRequest,
 } from "../../api/society.api";
+import Dropdown from "../ui/Dropdown";
+
+const statusOptions = [
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
 
 function SocietyRequests({ fixedStatus, title = "Society Requests" }) {
   const [requests, setRequests] = useState([]);
@@ -75,14 +82,12 @@ function SocietyRequests({ fixedStatus, title = "Society Requests" }) {
 
         <div className='flex items-center gap-2'>
           {!fixedStatus && (
-            <select
+            <Dropdown
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className='h-10 rounded border border-slate-300 px-3'>
-              <option value='pending'>Pending</option>
-              <option value='approved'>Approved</option>
-              <option value='rejected'>Rejected</option>
-            </select>
+              onChange={setStatus}
+              options={statusOptions}
+              className='w-40'
+            />
           )}
           <button
             onClick={fetchRequests}
