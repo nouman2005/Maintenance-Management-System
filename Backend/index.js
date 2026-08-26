@@ -13,6 +13,7 @@ import { scheduleMonthlyMaintenanceCharges } from "./Controllers/maintenanceCont
 import societyRoutes from "./Routes/societyRoutes.js";
 import superAdminRoutes from "./Routes/superAdminRoutes.js";
 import authRoutes from "./Routes/authRoutes.js";
+import financeRoutes from "./Routes/financeRoutes.js";
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use("/api/v1/flats", flatRoutes);
 app.use("/api/v1/tenants", tenantRoutes);
 app.use("/api/v1/maintenance-settings", maintenanceSettingRoutes);
 app.use("/api/v1/maintenance", maintenanceRoutes);
+app.use("/api/v1/finance", financeRoutes);
 
 app.get("/", (req, res) => {
   res.send("<h1>SuccessFully Connected</h1>");

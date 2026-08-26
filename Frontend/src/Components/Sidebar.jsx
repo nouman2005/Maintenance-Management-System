@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ClipboardList,
   Home,
+  IndianRupee,
   LogOut,
   Settings,
   UserRound,
@@ -44,6 +45,14 @@ const adminGroups = [
     items: [
       { target: "AddMaintenanceSetting", label: "Add Setting" },
       { target: "MaintenanceSettingList", label: "Settings List" },
+    ],
+  },
+  {
+    id: "finance",
+    label: "Finance",
+    icon: IndianRupee,
+    items: [
+      { target: "FinanceManagement", label: "Expenses & Ledger" },
     ],
   },
   {

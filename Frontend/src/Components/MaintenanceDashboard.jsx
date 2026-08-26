@@ -21,6 +21,7 @@ import SocietyDetails from "./Pages/SocietyDetails";
 import SuperAdminHome from "./Pages/SuperAdminHome";
 import { useSelector } from "react-redux";
 import ChangeTemporaryPassword from "./ChangeTemporaryPassword";
+import FinanceManagement from "./Pages/Finance/FinanceManagement";
 
 function MaintenanceDashboard() {
   const [isDesktop, setIsDesktop] = useState(() =>
@@ -72,6 +73,7 @@ function MaintenanceDashboard() {
     PayMaintenance: <PayMaintenancePage />,
     AddBalanceMaintenance: <AddBalanceMaintenancePage />,
     MonthlyMaintenanceCollectionReport: <MonthlyMaintenanceCollectionReportPage />,
+    FinanceManagement: <FinanceManagement />,
   };
 
   const superAdminComponentMap = {

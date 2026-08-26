@@ -67,10 +67,6 @@ function Dropdown({
     }
   }, [open, searchable]);
 
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query, open]);
-
   const selectOption = (option) => {
     if (!option || option.disabled) return;
     onChange?.(option.value, option);
@@ -83,6 +79,7 @@ function Dropdown({
 
     if (!open && ["ArrowDown", "Enter", " "].includes(event.key)) {
       event.preventDefault();
+      setActiveIndex(0);
       setOpen(true);
       return;
     }
@@ -132,7 +129,10 @@ function Dropdown({
         aria-expanded={open}
         aria-invalid={hasError}
         aria-required={required}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          setActiveIndex(0);
+          setOpen((current) => !current);
+        }}
         onKeyDown={handleKeyDown}
         className={`flex h-11 w-full items-center justify-between gap-3 rounded-md border bg-white px-3 text-left text-sm shadow-sm transition ${
           hasError
@@ -172,7 +172,10 @@ function Dropdown({
                 <input
                   ref={searchRef}
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setActiveIndex(0);
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder='Search...'
                   className='h-9 w-full rounded-md border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100'

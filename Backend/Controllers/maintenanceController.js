@@ -3,6 +3,7 @@ import multer from "multer";
 import XLSX from "xlsx";
 import db from "../Config/db.js";
 import { prefixedNanoId } from "../Utils/nanoId.js";
+import { recordMaintenanceIncomeTransaction } from "../Services/financeService.js";
 
 export const maintenanceUpload = multer({
   storage: multer.memoryStorage(),
@@ -983,6 +984,17 @@ export const recordMaintenancePayment = async (req, res) => {
       null,
       req.body,
     );
+    await recordMaintenanceIncomeTransaction({
+      connection: db,
+      societyId,
+      adminId,
+      paymentId: payment.insertId,
+      paymentMode: req.body.payment_mode || "cash",
+      paymentDate: req.body.payment_date || new Date().toISOString().slice(0, 10),
+      amount: fromCents(totalPaidCents),
+      referenceNo: req.body.reference_no || null,
+      receiptNumber,
+    });
     await db.commit();
     return res.status(201).json({
       success: true,
