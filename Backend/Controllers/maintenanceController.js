@@ -4,6 +4,10 @@ import XLSX from "xlsx";
 import db from "../Config/db.js";
 import { prefixedNanoId } from "../Utils/nanoId.js";
 import { recordMaintenanceIncomeTransaction } from "../Services/financeService.js";
+import {
+  buildPreview,
+  calculateMonthlyBill,
+} from "../Services/maintenanceBillingService.js";
 
 export const maintenanceUpload = multer({
   storage: multer.memoryStorage(),
@@ -305,6 +309,24 @@ export const saveMaintenanceRule = async (req, res) => {
 
   const {
     name,
+    maintenance_amount = 0,
+    billing_frequency = "monthly",
+    due_day = 10,
+    noc_enabled = true,
+    noc_calculation_type = "fixed",
+    noc_value = 0,
+    late_fee_enabled = true,
+    penalty_type = "percentage",
+    penalty_rate_value,
+    penalty_rate_period = "monthly",
+    penalty_frequency = "monthly",
+    penalty_method = "simple",
+    penalty_base = "original_eligible_charges",
+    penalty_applies_maintenance = true,
+    penalty_applies_noc = false,
+    grace_days,
+    max_penalty_enabled = false,
+    max_penalty_amount = 0,
     interest_rate_monthly,
     interest_grace_days = 0,
     interest_method = "simple_monthly",
@@ -313,9 +335,26 @@ export const saveMaintenanceRule = async (req, res) => {
     rounding_mode = "nearest",
     effective_from,
   } = req.body;
+  const resolvedMonthlyRate =
+    penalty_rate_period === "yearly"
+      ? Number(penalty_rate_value ?? interest_rate_monthly ?? 0) / 12
+      : Number(penalty_rate_value ?? interest_rate_monthly ?? 0);
+  const resolvedGraceDays = Number(grace_days ?? interest_grace_days ?? 0);
+  const resolvedInterestMethod =
+    penalty_method === "compound" ? "compound_monthly" : interest_method;
+  const resolvedInterestApplyTo = penalty_applies_noc
+    ? "maintenance_and_penalties"
+    : interest_apply_to;
 
   try {
     await db.beginTransaction();
+    const [[previousRule]] = await db.query(
+      `SELECT * FROM maintenance_rule_configs
+       WHERE society_id = ? AND status = 'active'
+       ORDER BY effective_from DESC, id DESC
+       LIMIT 1`,
+      [societyId],
+    );
     await db.query(
       `UPDATE maintenance_rule_configs SET status = 'inactive'
        WHERE society_id = ? AND status = 'active'`,
@@ -323,21 +362,57 @@ export const saveMaintenanceRule = async (req, res) => {
     );
     const [result] = await db.query(
       `INSERT INTO maintenance_rule_configs
-       (rule_code, society_id, admin_id, name, interest_rate_monthly, interest_grace_days,
-        interest_method, interest_apply_to, exclude_noc_from_interest, rounding_mode, effective_from)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE))`,
+       (rule_code, society_id, admin_id, name, maintenance_amount, billing_frequency,
+        due_day, noc_enabled, noc_calculation_type, noc_value, late_fee_enabled,
+        penalty_type, penalty_rate_value, penalty_rate_period, penalty_frequency,
+        penalty_method, penalty_base, penalty_applies_maintenance, penalty_applies_noc,
+        grace_days, max_penalty_enabled, max_penalty_amount, interest_rate_monthly,
+        interest_grace_days, interest_method, interest_apply_to, exclude_noc_from_interest,
+        rounding_mode, effective_from)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE))`,
       [
         prefixedNanoId("MRL"),
         societyId,
         adminId,
         name,
-        interest_rate_monthly,
-        interest_grace_days,
-        interest_method,
-        interest_apply_to,
-        exclude_noc_from_interest ? 1 : 0,
+        maintenance_amount,
+        billing_frequency,
+        due_day,
+        noc_enabled ? 1 : 0,
+        noc_calculation_type,
+        noc_value,
+        late_fee_enabled ? 1 : 0,
+        penalty_type,
+        penalty_rate_value ?? interest_rate_monthly ?? 0,
+        penalty_rate_period,
+        penalty_frequency,
+        penalty_method,
+        penalty_base,
+        penalty_applies_maintenance ? 1 : 0,
+        penalty_applies_noc ? 1 : 0,
+        resolvedGraceDays,
+        max_penalty_enabled ? 1 : 0,
+        max_penalty_amount,
+        resolvedMonthlyRate,
+        resolvedGraceDays,
+        resolvedInterestMethod,
+        resolvedInterestApplyTo,
+        penalty_applies_noc ? 0 : exclude_noc_from_interest ? 1 : 0,
         rounding_mode,
         effective_from || null,
+      ],
+    );
+    await db.query(
+      `INSERT INTO maintenance_setting_history
+       (society_id, admin_id, rule_id, action, before_data, after_data, reason)
+       VALUES (?, ?, ?, 'created', ?, ?, ?)`,
+      [
+        societyId,
+        adminId,
+        result.insertId,
+        previousRule ? JSON.stringify(previousRule) : null,
+        JSON.stringify(req.body),
+        req.body.reason || null,
       ],
     );
     await audit(
@@ -368,9 +443,15 @@ export const getMaintenanceRules = async (req, res) => {
 
   try {
     const [rows] = await db.query(
-      `SELECT id, rule_code, name, interest_rate_monthly, interest_grace_days,
-              interest_method, interest_apply_to, exclude_noc_from_interest,
-              rounding_mode, status, effective_from, created_at
+      `SELECT id, rule_code, name, maintenance_amount, billing_frequency, due_day,
+              noc_enabled, noc_calculation_type, noc_value, late_fee_enabled,
+              penalty_type, penalty_rate_value, penalty_rate_period,
+              penalty_frequency, penalty_method, penalty_base,
+              penalty_applies_maintenance, penalty_applies_noc, grace_days,
+              max_penalty_enabled, max_penalty_amount, interest_rate_monthly,
+              interest_grace_days, interest_method, interest_apply_to,
+              exclude_noc_from_interest, rounding_mode, status, effective_from,
+              effective_to, created_at, updated_at
        FROM maintenance_rule_configs
        WHERE society_id = ?
        ORDER BY status = 'active' DESC, effective_from DESC, id DESC`,
@@ -385,6 +466,55 @@ export const getMaintenanceRules = async (req, res) => {
   }
 };
 
+export const getMaintenanceRuleHistory = async (req, res) => {
+  const { societyId } = getScope(req);
+  if (ensureAdminSociety(res, societyId)) return;
+
+  try {
+    const [rows] = await db.query(
+      `SELECT msh.*, a.name AS admin_name
+       FROM maintenance_setting_history msh
+       LEFT JOIN admins a ON a.id = msh.admin_id
+       WHERE msh.society_id = ?
+         AND (? IS NULL OR msh.rule_id = ?)
+       ORDER BY msh.created_at DESC
+       LIMIT 100`,
+      [societyId, req.params.id || null, req.params.id || null],
+    );
+    return res.status(200).json({ success: true, data: rows });
+  } catch (error) {
+    console.error("GET MAINTENANCE RULE HISTORY ERROR:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch rule history" });
+  }
+};
+
+export const getFlatMaintenanceStatement = async (req, res) => {
+  const { societyId } = getScope(req);
+  if (ensureAdminSociety(res, societyId)) return;
+
+  try {
+    const [rows] = await db.query(
+      `SELECT mc.id, mc.period_month, mc.due_date, mc.penalty_eligibility_date,
+              mc.previous_outstanding, mc.maintenance_charge, mc.noc_charge,
+              mc.current_charge, mc.penalty_charge, mc.interest_amount,
+              mc.total_due, mc.total_paid, mc.total_balance, mc.status,
+              mc.settings_snapshot
+       FROM maintenance_charges mc
+       WHERE mc.society_id = ? AND mc.flat_id = ?
+       ORDER BY mc.period_month DESC`,
+      [societyId, req.params.flatId],
+    );
+    return res.status(200).json({ success: true, data: rows });
+  } catch (error) {
+    console.error("GET MAINTENANCE STATEMENT ERROR:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch maintenance statement" });
+  }
+};
+
 const upsertCharge = async (payload) => {
   const {
     societyId,
@@ -394,6 +524,11 @@ const upsertCharge = async (payload) => {
     maintenanceCharge,
     nocCharge = 0,
     penaltyCharge = 0,
+    previousOutstanding = 0,
+    currentCharge = null,
+    penaltyEligibilityDate = null,
+    ruleId = null,
+    settingsSnapshot = null,
     interestAmount = 0,
     dueDate = null,
     maintenancePaid = 0,
@@ -434,15 +569,21 @@ const upsertCharge = async (payload) => {
   const [result] = await db.query(
     `INSERT INTO maintenance_charges
      (charge_code, society_id, admin_id, flat_id, period_month, due_date, maintenance_charge, noc_charge,
-      penalty_charge, interest_amount, total_due, maintenance_paid, noc_paid, interest_paid,
+      penalty_charge, previous_outstanding, current_charge, penalty_eligibility_date, rule_id,
+      settings_snapshot, interest_amount, total_due, maintenance_paid, noc_paid, interest_paid,
       total_paid, maintenance_balance, noc_balance, interest_balance, total_balance, status, source, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        admin_id = VALUES(admin_id),
        due_date = VALUES(due_date),
        maintenance_charge = VALUES(maintenance_charge),
        noc_charge = VALUES(noc_charge),
        penalty_charge = VALUES(penalty_charge),
+       previous_outstanding = VALUES(previous_outstanding),
+       current_charge = VALUES(current_charge),
+       penalty_eligibility_date = VALUES(penalty_eligibility_date),
+       rule_id = VALUES(rule_id),
+       settings_snapshot = VALUES(settings_snapshot),
        interest_amount = VALUES(interest_amount),
        total_due = VALUES(total_due),
        maintenance_paid = VALUES(maintenance_paid),
@@ -466,6 +607,11 @@ const upsertCharge = async (payload) => {
       maintenanceCharge,
       nocCharge,
       penaltyCharge,
+      previousOutstanding,
+      currentCharge ?? fromCents(toCents(maintenanceCharge) + toCents(nocCharge)),
+      penaltyEligibilityDate,
+      ruleId,
+      settingsSnapshot ? JSON.stringify(settingsSnapshot) : null,
       interestAmount,
       totalDue,
       maintenancePaid,
@@ -494,6 +640,21 @@ const upsertCharge = async (payload) => {
     )[0][0]?.id;
 
   return { chargeId, totalDue };
+};
+
+export const getMaintenanceCalculationPreview = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      data: buildPreview(req.body || req.query || {}),
+    });
+  } catch (error) {
+    console.error("MAINTENANCE PREVIEW ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to calculate maintenance preview",
+    });
+  }
 };
 
 export const createMaintenanceCharge = async (req, res) => {
@@ -1276,8 +1437,9 @@ const generateMonthlyCharges = async (
     params.push(societyFilter);
   }
 
-  const [flats] = await db.query(
-    `SELECT f.id, f.society_id, f.admin_id, f.maintenance_amount,
+    const [flats] = await db.query(
+      `SELECT f.id, f.society_id, f.admin_id, f.maintenance_amount,
+            CASE WHEN t.id IS NULL THEN 0 ELSE 1 END AS has_active_tenant,
             COALESCE(t.noc_charge, 0) AS noc_charge,
             COALESCE(rc.recurring_charge, 0) AS recurring_charge
      FROM flats f
@@ -1314,16 +1476,26 @@ const generateMonthlyCharges = async (
       continue;
     }
 
-    const rule = await getActiveRule(flat.society_id);
+    const bill = await calculateMonthlyBill({
+      societyId: flat.society_id,
+      flat,
+      periodMonth,
+      asOfDate: periodMonth,
+    });
     const { chargeId, totalDue } = await upsertCharge({
       societyId: flat.society_id,
       adminId: flat.admin_id,
       flatId: flat.id,
       periodMonth,
-      dueDate: defaultDueDate(periodMonth, rule.interest_grace_days),
-      maintenanceCharge: amount(flat.maintenance_amount),
-      nocCharge: amount(flat.noc_charge),
-      penaltyCharge: amount(flat.recurring_charge),
+      dueDate: bill.due_date,
+      maintenanceCharge: bill.maintenance_charge,
+      nocCharge: bill.noc_charge,
+      penaltyCharge: bill.penalty_charge + amount(flat.recurring_charge),
+      previousOutstanding: bill.previous_outstanding,
+      currentCharge: bill.current_charge,
+      penaltyEligibilityDate: bill.penalty_eligibility_date,
+      ruleId: bill.rule_id,
+      settingsSnapshot: bill.snapshot,
       source: "system",
       notes: "Automatic monthly charge",
     });

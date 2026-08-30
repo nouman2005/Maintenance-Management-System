@@ -2,7 +2,32 @@ import { body, param, query } from "express-validator";
 
 export const saveRuleValidation = [
   body("name").notEmpty().withMessage("Rule name is required").isLength({ max: 100 }),
+  body("maintenance_amount").optional().isFloat({ min: 0 }),
+  body("billing_frequency").optional().isIn(["monthly"]),
+  body("due_day").optional().isInt({ min: 1, max: 31 }),
+  body("noc_enabled").optional().isBoolean(),
+  body("noc_calculation_type").optional().isIn(["fixed", "percentage"]),
+  body("noc_value").optional().isFloat({ min: 0 }),
+  body("late_fee_enabled").optional().isBoolean(),
+  body("penalty_type").optional().isIn(["percentage", "fixed"]),
+  body("penalty_rate_value").optional().isFloat({ min: 0 }),
+  body("penalty_rate_period").optional().isIn(["monthly", "yearly"]),
+  body("penalty_frequency").optional().isIn(["one_time", "monthly"]),
+  body("penalty_method").optional().isIn(["simple", "compound"]),
+  body("penalty_base")
+    .optional()
+    .isIn([
+      "original_eligible_charges",
+      "current_outstanding",
+      "outstanding_including_previous_penalties",
+    ]),
+  body("penalty_applies_maintenance").optional().isBoolean(),
+  body("penalty_applies_noc").optional().isBoolean(),
+  body("grace_days").optional().isInt({ min: 0, max: 365 }),
+  body("max_penalty_enabled").optional().isBoolean(),
+  body("max_penalty_amount").optional().isFloat({ min: 0 }),
   body("interest_rate_monthly")
+    .optional()
     .isFloat({ min: 0, max: 100 })
     .withMessage("Monthly interest rate must be between 0 and 100"),
   body("interest_grace_days").optional().isInt({ min: 0, max: 365 }),
