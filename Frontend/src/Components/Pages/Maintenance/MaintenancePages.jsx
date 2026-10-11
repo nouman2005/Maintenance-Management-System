@@ -486,15 +486,18 @@ export function PayMaintenancePage() {
       {flatDetails && (
         <div className='grid gap-5 xl:grid-cols-2'>
           <DataTable
-            columns={["Pending Month", "Due", "Paid", "Outstanding", "Status"]}
-            empty='No pending maintenance'
-            rows={flatDetails.pending_months.map((row) => [
-              new Date(row.period_month).toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
-              money(row.total_due),
-              money(row.total_paid),
-              money(row.total_balance),
-              row.status,
-            ])}
+            columns={["Current Month", "Maintenance", "NOC", "Penalty / Interest", "Due", "Paid", "Outstanding", "Status"]}
+            empty='No dues through the current month'
+            rows={[[
+              flatDetails.current_summary?.month ? new Date(`${flatDetails.current_summary.month}-01`).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "-",
+              money(flatDetails.current_summary?.maintenance),
+              money(flatDetails.current_summary?.noc),
+              money(flatDetails.current_summary?.penalty_interest),
+              money(flatDetails.current_summary?.due),
+              money(flatDetails.current_summary?.paid),
+              money(flatDetails.current_summary?.outstanding),
+              flatDetails.current_summary?.status || "paid",
+            ]]}
           />
           <DataTable
             columns={["Receipt", "Date", "Amount", "Method", "Billing Months", "Reference"]}

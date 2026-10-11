@@ -1257,10 +1257,15 @@ export const getFlatMaintenanceDetails = async (req, res) => {
 
   try {
     const [flats] = await db.query(
-      `SELECT id, flat_code, wing, flat_no, floor_no, owner_name, owner_phone,
-              owner_email, maintenance_amount, occupancy, status
-       FROM flats
-       WHERE id = ? AND society_id = ?`,
+      `SELECT f.id, f.flat_code, f.wing, f.flat_no, f.floor_no, f.owner_name, f.owner_phone,
+              f.owner_email, f.maintenance_amount, f.occupancy, f.status,
+              EXISTS(
+                SELECT 1 FROM tenants t
+                WHERE t.flat_id = f.id AND t.society_id = f.society_id
+                  AND t.status = 'active'
+              ) AS has_active_tenant
+       FROM flats f
+       WHERE f.id = ? AND f.society_id = ?`,
       [flatId, societyId],
     );
     if (flats.length === 0) {
@@ -1329,11 +1334,42 @@ export const getFlatMaintenanceDetails = async (req, res) => {
       [societyId, flatId, currentMonthStart()],
     );
 
+    const [[currentSummary]] = await db.query(
+      `SELECT
+         COALESCE(SUM(GREATEST(maintenance_charge - maintenance_paid, 0)), 0) AS maintenance,
+         COALESCE(SUM(noc_balance), 0) AS noc,
+         COALESCE(SUM(
+           GREATEST(maintenance_balance - GREATEST(maintenance_charge - maintenance_paid, 0), 0)
+           + interest_balance
+         ), 0) AS penalty_interest,
+         COALESCE(SUM(total_paid), 0) AS paid,
+         COALESCE(SUM(total_balance), 0) AS outstanding
+       FROM maintenance_charges
+       WHERE society_id = ? AND flat_id = ? AND period_month <= ?`,
+      [societyId, flatId, currentMonthStart()],
+    );
+    const outstanding = Number(currentSummary.outstanding || 0);
+    const paid = Number(currentSummary.paid || 0);
+    const maintenance = Number(currentSummary.maintenance || 0);
+    const noc = Number(currentSummary.noc || 0);
+    const penaltyInterest = Number(currentSummary.penalty_interest || 0);
+
     return res.status(200).json({
       success: true,
       data: {
         flat: flats[0],
         totals,
+        current_summary: {
+          month: currentMonthStart().slice(0, 7),
+          maintenance,
+          // Existing unpaid NOC remains collectible. New owner-occupied bills receive no NOC.
+          noc,
+          penalty_interest: penaltyInterest,
+          due: outstanding,
+          paid,
+          outstanding,
+          status: outstanding <= 0 ? "paid" : paid > 0 ? "partial" : "unpaid",
+        },
         pending_months: pendingMonths,
         monthly_records: monthly,
         payment_history: payments,
@@ -1481,15 +1517,15 @@ const generateMonthlyCharges = async (
 
     const [flats] = await db.query(
       `SELECT f.id, f.society_id, f.admin_id, f.maintenance_amount,
-            CASE WHEN t.id IS NULL THEN 0 ELSE 1 END AS has_active_tenant,
-            COALESCE(t.noc_charge, 0) AS noc_charge,
+            CASE WHEN EXISTS (
+              SELECT 1 FROM tenants t
+              WHERE t.flat_id = f.id
+                AND t.society_id = f.society_id
+                AND t.move_in_date <= ?
+                AND (t.status = 'active' OR (t.status = 'inactive' AND t.exit_letter_submitted = 0))
+            ) THEN 1 ELSE 0 END AS has_active_tenant,
             COALESCE(rc.recurring_charge, 0) AS recurring_charge
      FROM flats f
-     LEFT JOIN tenants t
-       ON t.flat_id = f.id
-      AND t.status = 'active'
-      AND t.move_in_date <= ?
-      AND (t.move_out_date IS NULL OR t.move_out_date >= ?)
      LEFT JOIN (
        SELECT society_id, SUM(setting_value) AS recurring_charge
        FROM maintenance_settings
@@ -1501,7 +1537,7 @@ const generateMonthlyCharges = async (
        GROUP BY society_id
      ) rc ON rc.society_id = f.society_id
      ${where}`,
-    [monthEnd(periodMonth), periodMonth, periodMonth, periodMonth, ...params],
+    [monthEnd(periodMonth), periodMonth, periodMonth, ...params],
   );
 
   let created = 0;
@@ -1584,21 +1620,32 @@ export const runMonthlyChargeGeneration = async (req, res) => {
 };
 
 export const scheduleMonthlyMaintenanceCharges = () => {
-  const runIfDue = async () => {
-    const now = new Date();
-    if (now.getDate() !== 1) return;
+  const recoverCurrentMonth = async () => {
     try {
       const result = await generateMonthlyCharges(currentMonthStart());
+      const [admins] = await db.query(
+        `SELECT id, society_id FROM admins WHERE status = 'active' ORDER BY id`,
+      );
+      // Reuse the same configured penalty/interest routine used by the admin API.
+      // It only updates unpaid charges and is safe to run repeatedly.
+      for (const admin of admins) {
+        await recalculateInterest(
+          { user: { id: admin.id, society_id: admin.society_id }, body: {} },
+          { status: () => ({ json: () => undefined }) },
+        );
+      }
       console.log(
-        `Monthly maintenance generation: ${result.created} created, ${result.skipped} skipped for ${result.period_month}`,
+        `Monthly maintenance recovery: ${result.created} created, ${result.skipped} skipped for ${result.period_month}`,
       );
     } catch (error) {
       console.error("MONTHLY MAINTENANCE GENERATION ERROR:", error);
     }
   };
 
-  runIfDue();
-  return setInterval(runIfDue, 24 * 60 * 60 * 1000);
+  // The flat/month unique key makes this safe on restarts and in repeated daily runs.
+  // It creates a missed current-month charge even when the server was offline on day one.
+  recoverCurrentMonth();
+  return setInterval(recoverCurrentMonth, 24 * 60 * 60 * 1000);
 };
 
 export const getMaintenanceReports = async (req, res) => {

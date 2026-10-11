@@ -190,11 +190,17 @@ function MaintenanceManagement() {
   );
 
   const paymentOutstanding = useMemo(() => {
-    const totals = flatMaintenance?.totals || {};
-    const maintenance = numberValue(totals.maintenance_balance);
-    const noc = numberValue(totals.noc_balance);
-    const interest = numberValue(totals.interest_balance);
-    return { maintenance, noc, interest, total: maintenance + noc + interest };
+    const summary = flatMaintenance?.current_summary || {};
+    return {
+      maintenance: numberValue(summary.maintenance),
+      noc: numberValue(summary.noc),
+      interest: numberValue(summary.penalty_interest),
+      due: numberValue(summary.due),
+      paid: numberValue(summary.paid),
+      total: numberValue(summary.outstanding),
+      month: summary.month,
+      status: summary.status,
+    };
   }, [flatMaintenance]);
 
   useEffect(() => {
@@ -310,9 +316,10 @@ function MaintenanceManagement() {
         amount: paymentForm.total_amount_paid,
       });
       toast.success(res.data.message || "Payment recorded");
-      setPaymentForm(blankPayment);
-      setFlatMaintenance(null);
-      refreshAll();
+      const paidFlatId = paymentForm.flat_id;
+      setPaymentForm({ ...blankPayment, flat_id: paidFlatId });
+      await fetchFlatMaintenance(paidFlatId);
+      await fetchBase();
     } catch (err) {
       toast.error(err.response?.data?.message || "Unable to record payment");
     } finally {
@@ -761,7 +768,7 @@ function MaintenanceManagement() {
                 <Stat label='Owner' value={flatMaintenance.flat.owner_name} />
                 <Stat label='Maintenance Due' value={money(paymentOutstanding.maintenance)} />
                 <Stat label='NOC Due' value={money(paymentOutstanding.noc)} />
-                <Stat label='Interest Due' value={money(paymentOutstanding.interest)} />
+                <Stat label='Penalty / Interest Due' value={money(paymentOutstanding.interest)} />
               </div>
 
               <div className='flex flex-wrap gap-2'>
@@ -783,17 +790,18 @@ function MaintenanceManagement() {
 
               <div className='grid gap-5 xl:grid-cols-2'>
                 <DataTable
-                  columns={["Pending Month", "Due Date", "Maintenance", "NOC", "Interest", "Outstanding", "Status"]}
-                  empty='No pending months for this flat'
-                  rows={flatMaintenance.pending_months.map((row) => [
-                    new Date(row.period_month).toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
-                    row.due_date ? new Date(row.due_date).toLocaleDateString("en-IN") : "-",
-                    money(row.maintenance_balance),
-                    money(row.noc_balance),
-                    money(row.interest_balance),
-                    money(row.total_balance),
-                    row.status,
-                  ])}
+                  columns={["Current Month", "Maintenance", "NOC", "Penalty / Interest", "Due", "Paid", "Outstanding", "Status"]}
+                  empty='No dues through the current month for this flat'
+                  rows={[[
+                    paymentOutstanding.month ? new Date(`${paymentOutstanding.month}-01`).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "-",
+                    money(paymentOutstanding.maintenance),
+                    money(paymentOutstanding.noc),
+                    money(paymentOutstanding.interest),
+                    money(paymentOutstanding.due),
+                    money(paymentOutstanding.paid),
+                    money(paymentOutstanding.total),
+                    paymentOutstanding.status || "paid",
+                  ]]}
                 />
                 <DataTable
                   columns={["Receipt", "Date", "Maintenance", "NOC", "Interest", "Total", "Period", "Mode"]}
