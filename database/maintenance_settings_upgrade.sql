@@ -8,11 +8,11 @@ ALTER TABLE maintenance_rule_configs
   ADD COLUMN IF NOT EXISTS billing_frequency ENUM('monthly') NOT NULL DEFAULT 'monthly' AFTER maintenance_amount,
   ADD COLUMN IF NOT EXISTS due_day TINYINT NOT NULL DEFAULT 10 AFTER billing_frequency,
   ADD COLUMN IF NOT EXISTS noc_enabled BOOLEAN NOT NULL DEFAULT TRUE AFTER due_day,
-  ADD COLUMN IF NOT EXISTS noc_calculation_type ENUM('fixed','percentage') NOT NULL DEFAULT 'fixed' AFTER noc_enabled,
-  ADD COLUMN IF NOT EXISTS noc_value DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER noc_calculation_type,
+  ADD COLUMN IF NOT EXISTS noc_calculation_type ENUM('fixed','percentage') NULL DEFAULT NULL AFTER noc_enabled,
+  ADD COLUMN IF NOT EXISTS noc_value DECIMAL(12,2) NULL DEFAULT NULL AFTER noc_calculation_type,
   ADD COLUMN IF NOT EXISTS late_fee_enabled BOOLEAN NOT NULL DEFAULT TRUE AFTER noc_value,
   ADD COLUMN IF NOT EXISTS penalty_type ENUM('percentage','fixed') NOT NULL DEFAULT 'percentage' AFTER late_fee_enabled,
-  ADD COLUMN IF NOT EXISTS penalty_rate_value DECIMAL(8,4) NOT NULL DEFAULT 0.0000 AFTER penalty_type,
+  ADD COLUMN IF NOT EXISTS penalty_rate_value DECIMAL(8,4) NULL DEFAULT NULL AFTER penalty_type,
   ADD COLUMN IF NOT EXISTS penalty_rate_period ENUM('monthly','yearly') NOT NULL DEFAULT 'monthly' AFTER penalty_rate_value,
   ADD COLUMN IF NOT EXISTS penalty_frequency ENUM('one_time','monthly') NOT NULL DEFAULT 'monthly' AFTER penalty_rate_period,
   ADD COLUMN IF NOT EXISTS penalty_method ENUM('simple','compound') NOT NULL DEFAULT 'simple' AFTER penalty_frequency,
@@ -21,7 +21,7 @@ ALTER TABLE maintenance_rule_configs
   ADD COLUMN IF NOT EXISTS penalty_applies_noc BOOLEAN NOT NULL DEFAULT FALSE AFTER penalty_applies_maintenance,
   ADD COLUMN IF NOT EXISTS grace_days INT NOT NULL DEFAULT 0 AFTER penalty_applies_noc,
   ADD COLUMN IF NOT EXISTS max_penalty_enabled BOOLEAN NOT NULL DEFAULT FALSE AFTER grace_days,
-  ADD COLUMN IF NOT EXISTS max_penalty_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER max_penalty_enabled;
+  ADD COLUMN IF NOT EXISTS max_penalty_amount DECIMAL(12,2) NULL DEFAULT NULL AFTER max_penalty_enabled;
 
 UPDATE maintenance_rule_configs
 SET penalty_rate_value = COALESCE(NULLIF(penalty_rate_value, 0), interest_rate_monthly, 0),

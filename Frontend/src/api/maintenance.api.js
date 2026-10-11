@@ -9,6 +9,14 @@ export const saveMaintenanceRule = (data) => api.post("/maintenance/rules", data
 export const getMaintenanceRuleHistory = (id = "") =>
   api.get(id ? `/maintenance/rules/${id}/history` : "/maintenance/rules/history");
 
+export const previewMaintenanceRevision = (data) =>
+  api.post("/maintenance/revisions/preview", data);
+
+export const applyMaintenanceRevision = (data) =>
+  api.post("/maintenance/revisions", data);
+
+export const getMaintenanceRevisions = () => api.get("/maintenance/revisions");
+
 export const getMaintenanceCalculationPreview = (data) =>
   api.post("/maintenance/calculation-preview", data);
 

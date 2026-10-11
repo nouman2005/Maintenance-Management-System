@@ -4,20 +4,30 @@ import { prefixedNanoId } from "../Utils/nanoId.js";
 
 const getAdminSocietyId = (req) => req.user?.society_id;
 
-const getActiveNocCharge = async (societyId) => {
-  const [settings] = await db.query(
-    `SELECT setting_value
-     FROM maintenance_settings
-     WHERE society_id = ?
-       AND setting_key = 'noc_charge'
-       AND status = 'active'
-       AND effective_from <= CURRENT_DATE
-       AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
-     ORDER BY effective_from DESC, id DESC
-     LIMIT 1`,
-    [societyId]
+const getActiveNocCharge = async (societyId, maintenanceAmount, effectiveDate) => {
+  const [rules] = await db.query(
+    `SELECT noc_enabled, noc_calculation_type, noc_value
+     FROM maintenance_rule_configs
+     WHERE society_id = ? AND status = 'active'
+       AND effective_from <= ? AND (effective_to IS NULL OR effective_to >= ?)
+     ORDER BY effective_from DESC, id DESC LIMIT 1`,
+    [societyId, effectiveDate, effectiveDate],
   );
-
+  const rule = rules[0];
+  if (rule) {
+    if (!rule.noc_enabled) return 0;
+    return rule.noc_calculation_type === "percentage"
+      ? Number(((Number(maintenanceAmount) * Number(rule.noc_value || 0)) / 100).toFixed(2))
+      : Number(rule.noc_value || 0);
+  }
+  // Compatibility fallback for societies that still use the pre-rule NOC setting.
+  const [settings] = await db.query(
+    `SELECT setting_value FROM maintenance_settings
+     WHERE society_id = ? AND setting_key = 'noc_charge' AND status = 'active'
+       AND effective_from <= ? AND (effective_to IS NULL OR effective_to >= ?)
+     ORDER BY effective_from DESC, id DESC LIMIT 1`,
+    [societyId, effectiveDate, effectiveDate],
+  );
   return Number(settings[0]?.setting_value || 0);
 };
 
@@ -83,7 +93,7 @@ export const createTenant = async (req, res) => {
     }
 
     const maintenanceAmount = Number(flats[0].maintenance_amount || 0);
-    const nocCharge = await getActiveNocCharge(societyId);
+    const nocCharge = await getActiveNocCharge(societyId, maintenanceAmount, move_in_date);
     const totalMonthlyCharge = maintenanceAmount + nocCharge;
 
     await db.query(

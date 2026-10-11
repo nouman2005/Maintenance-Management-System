@@ -25,10 +25,18 @@ import {
   updateMaintenanceBalance,
 } from "../Controllers/maintenanceController.js";
 import {
+  applyMaintenanceRevision,
+  getMaintenanceRevisions,
+  previewMaintenanceRevision,
+} from "../Controllers/maintenanceRevisionController.js";
+import {
   balanceValidation,
   createChargeValidation,
   listChargeValidation,
   paymentValidation,
+  normalizeMaintenanceRule,
+  maintenanceRevisionValidation,
+  ruleHistoryValidation,
   saveRuleValidation,
 } from "../validators/maintenanceValidator.js";
 
@@ -38,9 +46,12 @@ router.use(verifyAccessToken, adminOnly);
 
 router.get("/summary", getMaintenanceSummary);
 router.get("/rules", getMaintenanceRules);
-router.post("/rules", saveRuleValidation, saveMaintenanceRule);
-router.get("/rules/history", getMaintenanceRuleHistory);
-router.get("/rules/:id/history", getMaintenanceRuleHistory);
+router.post("/rules", normalizeMaintenanceRule, saveRuleValidation, saveMaintenanceRule);
+router.get("/rules/history", ruleHistoryValidation, getMaintenanceRuleHistory);
+router.get("/rules/:id/history", ruleHistoryValidation, getMaintenanceRuleHistory);
+router.post("/revisions/preview", maintenanceRevisionValidation, previewMaintenanceRevision);
+router.post("/revisions", maintenanceRevisionValidation, applyMaintenanceRevision);
+router.get("/revisions", getMaintenanceRevisions);
 router.get("/reports/export", exportMaintenanceReport);
 router.get("/flats/:flatId", getFlatMaintenanceDetails);
 router.get("/statement/:flatId", getFlatMaintenanceStatement);

@@ -1,397 +1,64 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Calculator, CalendarDays, Info, Save, Settings } from "lucide-react";
+import { Save, Settings, TrendingUp } from "lucide-react";
 import Dropdown from "../../ui/Dropdown";
-import {
-  getMaintenanceCalculationPreview,
-  getMaintenanceRules,
-  saveMaintenanceRule,
-} from "../../../api/maintenance.api";
+import { applyMaintenanceRevision, getMaintenanceRevisions, getMaintenanceRules, previewMaintenanceRevision, saveMaintenanceRule } from "../../../api/maintenance.api";
 
-const initialForm = {
-  name: "Default monthly maintenance rule",
-  maintenance_amount: "500",
-  billing_frequency: "monthly",
-  due_day: "10",
-  noc_enabled: true,
-  noc_calculation_type: "fixed",
-  noc_value: "0",
-  late_fee_enabled: true,
-  penalty_type: "percentage",
-  penalty_rate_value: "1",
-  penalty_rate_period: "monthly",
-  penalty_frequency: "monthly",
-  penalty_method: "simple",
-  penalty_base: "original_eligible_charges",
-  penalty_applies_maintenance: true,
-  penalty_applies_noc: false,
-  grace_days: "5",
-  max_penalty_enabled: false,
-  max_penalty_amount: "",
-  rounding_mode: "nearest",
-  effective_from: new Date().toISOString().slice(0, 10),
-  reason: "",
-};
+const today = new Date().toISOString().slice(0, 10);
+const money = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const yesNo = [{ value: true, label: "Enabled" }, { value: false, label: "Disabled" }];
+const calculationTypes = [{ value: "fixed", label: "Fixed Amount" }, { value: "percentage", label: "Percentage" }];
+const revisionTypes = [{ value: "fixed_increase", label: "Fixed Increase" }, { value: "per_sqft_increase", label: "Per Square Foot Increase" }];
+const Input = (props) => <input {...props} className='h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-slate-100' />;
+const Field = ({ label, children }) => <label className='block'><span className='mb-1.5 block text-sm font-medium text-slate-700'>{label}</span>{children}</label>;
 
-const yesNoOptions = [
-  { value: true, label: "Enabled" },
-  { value: false, label: "Disabled" },
-];
-const calcTypeOptions = [
-  { value: "fixed", label: "Fixed Amount" },
-  { value: "percentage", label: "Percentage" },
-];
-const ratePeriodOptions = [
-  { value: "monthly", label: "Monthly" },
-  { value: "yearly", label: "Yearly" },
-];
-const frequencyOptions = [
-  { value: "one_time", label: "One Time" },
-  { value: "monthly", label: "Monthly" },
-];
-const methodOptions = [
-  { value: "simple", label: "Simple" },
-  { value: "compound", label: "Compound" },
-];
-const baseOptions = [
-  { value: "original_eligible_charges", label: "Original Eligible Charges" },
-  { value: "current_outstanding", label: "Current Outstanding" },
-  {
-    value: "outstanding_including_previous_penalties",
-    label: "Outstanding Including Previous Penalties",
-  },
-];
-const roundingOptions = [
-  { value: "nearest", label: "Round Nearest" },
-  { value: "floor", label: "Round Down" },
-  { value: "ceil", label: "Round Up" },
-  { value: "none", label: "No Rounding" },
-];
-
-const money = (value) =>
-  `Rs. ${Number(value || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-
-function Field({ label, helper, children, className = "" }) {
-  return (
-    <label className={`block ${className}`}>
-      <span className='mb-1.5 block text-sm font-medium text-slate-700'>
-        {label}
-      </span>
-      {children}
-      {helper && <span className='mt-1.5 block text-xs leading-5 text-slate-500'>{helper}</span>}
-    </label>
-  );
-}
-
-function TextInput(props) {
-  return (
-    <input
-      {...props}
-      className='h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100'
-    />
-  );
-}
-
-function Toggle({ checked, onChange, label }) {
-  return (
-    <button
-      type='button'
-      onClick={() => onChange(!checked)}
-      className={`inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-medium transition ${
-        checked
-          ? "border-sky-200 bg-sky-50 text-sky-800"
-          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-      }`}>
-      <span className={`h-4 w-4 rounded border ${checked ? "border-sky-600 bg-sky-600" : "border-slate-300"}`} />
-      {label}
-    </button>
-  );
-}
-
-function PreviewPanel({ preview, form }) {
-  const monthlyEquivalent =
-    form.penalty_rate_period === "yearly"
-      ? Number(form.penalty_rate_value || 0) / 12
-      : Number(form.penalty_rate_value || 0);
-  const yearlyReference =
-    form.penalty_rate_period === "monthly"
-      ? Number(form.penalty_rate_value || 0) * 12
-      : Number(form.penalty_rate_value || 0);
-
-  return (
-    <section className='rounded-lg border border-slate-200 bg-white p-5 shadow-sm'>
-      <div className='mb-4 flex items-center gap-2 font-semibold text-slate-950'>
-        <Calculator size={18} className='text-sky-600' />
-        Calculation Preview
-      </div>
-      <div className='grid gap-3 sm:grid-cols-2'>
-        <div className='rounded-md bg-slate-50 p-3'>
-          <div className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Maintenance</div>
-          <div className='mt-1 text-lg font-semibold text-slate-950'>{money(preview?.current?.maintenance)}</div>
-        </div>
-        <div className='rounded-md bg-slate-50 p-3'>
-          <div className='text-xs font-semibold uppercase tracking-wide text-slate-500'>NOC</div>
-          <div className='mt-1 text-lg font-semibold text-slate-950'>{money(preview?.current?.noc)}</div>
-        </div>
-        <div className='rounded-md bg-slate-50 p-3'>
-          <div className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Example Penalty</div>
-          <div className='mt-1 text-lg font-semibold text-slate-950'>{money(preview?.current?.penalty)}</div>
-        </div>
-        <div className='rounded-md bg-slate-950 p-3 text-white'>
-          <div className='text-xs font-semibold uppercase tracking-wide text-white/70'>Current Total</div>
-          <div className='mt-1 text-lg font-semibold'>{money(preview?.current?.total)}</div>
-        </div>
-      </div>
-
-      <div className='mt-4 rounded-md border border-sky-100 bg-sky-50 p-3 text-sm text-sky-900'>
-        {form.penalty_rate_period === "yearly"
-          ? `${form.penalty_rate_value || 0}% yearly is treated as ${monthlyEquivalent.toFixed(2)}% per month.`
-          : `${form.penalty_rate_value || 0}% monthly is shown as ${yearlyReference.toFixed(2)}% yearly reference.`}
-      </div>
-
-      <div className='mt-4 space-y-3'>
-        {(preview?.months || []).map((row) => (
-          <div key={row.month} className='rounded-md border border-slate-200 p-3 text-sm'>
-            <div className='mb-2 font-semibold text-slate-950'>{row.month}</div>
-            <div className='grid gap-2 sm:grid-cols-2'>
-              <span>Previous Outstanding: {money(row.previous_outstanding)}</span>
-              <span>Current Maintenance: {money(row.maintenance)}</span>
-              <span>NOC: {money(row.noc)}</span>
-              <span>Subtotal: {money(row.subtotal)}</span>
-              <span>Penalty: {money(row.penalty)}</span>
-              <span className='font-semibold'>Outstanding: {money(row.outstanding)}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function AddMaintenanceSetting() {
-  const [form, setForm] = useState(initialForm);
+export default function AddMaintenanceSetting() {
+  const [rules, setRules] = useState({ noc_enabled: true, noc_calculation_type: "fixed", noc_value: "0", late_fee_enabled: true, penalty_type: "percentage", penalty_rate_value: "1", grace_days: "5" });
+  const [revision, setRevision] = useState({ name: "", revision_type: "fixed_increase", increase_amount: "", effective_from: today, reason: "", notes: "" });
   const [preview, setPreview] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-
-  const activeTargets = useMemo(
-    () => [
-      form.penalty_applies_maintenance ? "Maintenance" : null,
-      form.penalty_applies_noc ? "NOC" : null,
-    ].filter(Boolean).join(" + ") || "No charge selected",
-    [form.penalty_applies_maintenance, form.penalty_applies_noc]
-  );
-
-  useEffect(() => {
-    let active = true;
-    getMaintenanceCalculationPreview(form)
-      .then((res) => {
-        if (active) setPreview(res.data.data);
-      })
-      .catch(() => {
-        if (active) setPreview(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [form]);
-
-  useEffect(() => {
-    let active = true;
-    getMaintenanceRules()
-      .then((res) => {
-        const current = (res.data.data || []).find((item) => item.status === "active");
-        if (active && current) {
-          setForm((existing) => ({
-            ...existing,
-            ...Object.fromEntries(
-              Object.entries(current).filter(([, value]) => value !== null && value !== undefined)
-            ),
-            noc_enabled: Boolean(current.noc_enabled),
-            late_fee_enabled: Boolean(current.late_fee_enabled),
-            penalty_applies_maintenance: Boolean(current.penalty_applies_maintenance),
-            penalty_applies_noc: Boolean(current.penalty_applies_noc),
-            max_penalty_enabled: Boolean(current.max_penalty_enabled),
-          }));
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
+  const [history, setHistory] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const setRule = (key, value) => setRules((current) => ({ ...current, [key]: value }));
+  const setRevisionValue = (key, value) => { setPreview(null); setRevision((current) => ({ ...current, [key]: value })); };
+  const load = async () => {
     try {
-      await saveMaintenanceRule(form);
-      toast.success("Maintenance billing rule saved");
-    } catch (err) {
-      const errors = err?.response?.data?.errors;
-      toast.error(errors?.[0]?.msg || err.response?.data?.message || "Failed to save rule");
-    } finally {
-      setLoading(false);
-    }
+      const [ruleResponse, revisionResponse] = await Promise.all([getMaintenanceRules(), getMaintenanceRevisions()]);
+      const active = (ruleResponse.data.data || []).find((rule) => rule.status === "active");
+      if (active) setRules((current) => ({ ...current, ...active, noc_enabled: Boolean(active.noc_enabled), late_fee_enabled: Boolean(active.late_fee_enabled) }));
+      setHistory(revisionResponse.data.data || []);
+    } catch { toast.error("Unable to load maintenance settings"); }
   };
-
-  return (
-    <div className='mx-auto max-w-6xl space-y-5'>
-      <div className='border-b border-slate-200 pb-4'>
-        <h2 className='text-2xl font-semibold text-slate-950'>
-          Maintenance Billing Rules
-        </h2>
-        <p className='text-sm text-slate-500'>
-          Configure society-specific maintenance, NOC, due dates, grace period, and late-fee rules.
-        </p>
-      </div>
-
-      <form onSubmit={submit} className='grid gap-5 xl:grid-cols-[1fr_380px]'>
-        <div className='space-y-5'>
-          <section className='rounded-lg border border-slate-200 bg-white shadow-sm'>
-            <div className='border-b border-slate-200 p-5'>
-              <div className='flex items-center gap-2 text-sm font-semibold text-slate-800'>
-                <Settings size={18} className='text-sky-600' />
-                General Maintenance
-              </div>
-            </div>
-            <div className='grid gap-4 p-5 sm:grid-cols-2'>
-              <Field label='Rule Name'>
-                <TextInput value={form.name} onChange={(e) => update("name", e.target.value)} required />
-              </Field>
-              <Field label='Maintenance Amount'>
-                <TextInput type='number' min='0' step='0.01' value={form.maintenance_amount} onChange={(e) => update("maintenance_amount", e.target.value)} required />
-              </Field>
-              <Field label='Billing Frequency'>
-                <Dropdown value={form.billing_frequency} onChange={(value) => update("billing_frequency", value)} options={[{ value: "monthly", label: "Monthly" }]} />
-              </Field>
-              <Field label='Due Day' helper='Day of the billing month when payment is due.'>
-                <TextInput type='number' min='1' max='31' value={form.due_day} onChange={(e) => update("due_day", e.target.value)} required />
-              </Field>
-              <Field label='Effective From'>
-                <TextInput type='date' value={form.effective_from} onChange={(e) => update("effective_from", e.target.value)} />
-              </Field>
-              <Field label='Change Reason'>
-                <TextInput value={form.reason} onChange={(e) => update("reason", e.target.value)} placeholder='Optional history note' />
-              </Field>
-            </div>
-          </section>
-
-          <section className='rounded-lg border border-slate-200 bg-white shadow-sm'>
-            <div className='border-b border-slate-200 p-5 font-semibold text-slate-800'>
-              NOC / Tenant Charges
-            </div>
-            <div className='grid gap-4 p-5 sm:grid-cols-3'>
-              <Field label='NOC Enabled'>
-                <Dropdown value={form.noc_enabled} onChange={(value) => update("noc_enabled", value)} options={yesNoOptions} />
-              </Field>
-              <Field label='Calculation Type'>
-                <Dropdown value={form.noc_calculation_type} onChange={(value) => update("noc_calculation_type", value)} options={calcTypeOptions} disabled={!form.noc_enabled} />
-              </Field>
-              <Field label={form.noc_calculation_type === "percentage" ? "NOC Rate %" : "NOC Amount"}>
-                <TextInput type='number' min='0' step='0.01' value={form.noc_value} onChange={(e) => update("noc_value", e.target.value)} disabled={!form.noc_enabled} />
-              </Field>
-            </div>
-          </section>
-
-          <section className='rounded-lg border border-slate-200 bg-white shadow-sm'>
-            <div className='border-b border-slate-200 p-5 font-semibold text-slate-800'>
-              Late Fee / Penalty
-            </div>
-            <div className='grid gap-4 p-5 sm:grid-cols-2'>
-              <Field label='Enable Late Fee'>
-                <Dropdown value={form.late_fee_enabled} onChange={(value) => update("late_fee_enabled", value)} options={yesNoOptions} />
-              </Field>
-              <Field label='Grace Period' helper='Number of days after due date before late fee applies.'>
-                <TextInput type='number' min='0' value={form.grace_days} onChange={(e) => update("grace_days", e.target.value)} disabled={!form.late_fee_enabled} />
-              </Field>
-              <Field label='Penalty Type'>
-                <Dropdown value={form.penalty_type} onChange={(value) => update("penalty_type", value)} options={calcTypeOptions} disabled={!form.late_fee_enabled} />
-              </Field>
-              <Field label={form.penalty_type === "percentage" ? "Penalty Rate %" : "Penalty Amount"}>
-                <TextInput type='number' min='0' step='0.01' value={form.penalty_rate_value} onChange={(e) => update("penalty_rate_value", e.target.value)} disabled={!form.late_fee_enabled} />
-              </Field>
-              <Field label='Rate Period' helper='Yearly rates are divided by 12 for monthly billing.'>
-                <Dropdown value={form.penalty_rate_period} onChange={(value) => update("penalty_rate_period", value)} options={ratePeriodOptions} disabled={!form.late_fee_enabled || form.penalty_type === "fixed"} />
-              </Field>
-              <Field label='Penalty Frequency'>
-                <Dropdown value={form.penalty_frequency} onChange={(value) => update("penalty_frequency", value)} options={frequencyOptions} disabled={!form.late_fee_enabled} />
-              </Field>
-              <div className='sm:col-span-2'>
-                <div className='mb-2 text-sm font-medium text-slate-700'>Penalty Applies To</div>
-                <div className='flex flex-wrap gap-2'>
-                  <Toggle checked={form.penalty_applies_maintenance} onChange={(value) => update("penalty_applies_maintenance", value)} label='Maintenance' />
-                  <Toggle checked={form.penalty_applies_noc} onChange={(value) => update("penalty_applies_noc", value)} label='NOC' />
-                </div>
-                <p className='mt-2 text-xs text-slate-500'>Current selection: {activeTargets}</p>
-              </div>
-            </div>
-          </section>
-
-          <section className='rounded-lg border border-slate-200 bg-white shadow-sm'>
-            <button
-              type='button'
-              onClick={() => setAdvancedOpen((current) => !current)}
-              className='flex w-full items-center justify-between border-b border-slate-200 p-5 text-left font-semibold text-slate-800'>
-              Advanced Rules
-              <span className='text-sm text-slate-500'>{advancedOpen ? "Hide" : "Show"}</span>
-            </button>
-            {advancedOpen && (
-              <div className='grid gap-4 p-5 sm:grid-cols-2'>
-                <Field label='Penalty Method' helper='Simple avoids repeatedly applying penalty to previous penalties. Compound can use outstanding balances as the base.'>
-                  <Dropdown value={form.penalty_method} onChange={(value) => update("penalty_method", value)} options={methodOptions} />
-                </Field>
-                <Field label='Penalty Base'>
-                  <Dropdown value={form.penalty_base} onChange={(value) => update("penalty_base", value)} options={baseOptions} />
-                </Field>
-                <Field label='Maximum Penalty'>
-                  <Dropdown value={form.max_penalty_enabled} onChange={(value) => update("max_penalty_enabled", value)} options={[{ value: false, label: "No Limit" }, { value: true, label: "Maximum Amount" }]} />
-                </Field>
-                <Field label='Maximum Amount'>
-                  <TextInput type='number' min='0' step='0.01' value={form.max_penalty_amount} onChange={(e) => update("max_penalty_amount", e.target.value)} disabled={!form.max_penalty_enabled} />
-                </Field>
-                <Field label='Rounding'>
-                  <Dropdown value={form.rounding_mode} onChange={(value) => update("rounding_mode", value)} options={roundingOptions} />
-                </Field>
-              </div>
-            )}
-          </section>
-
-          <div className='flex justify-end'>
-            <button
-              type='submit'
-              disabled={loading}
-              className='inline-flex h-10 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60'>
-              <Save size={16} />
-              {loading ? "Saving..." : "Save Billing Rule"}
-            </button>
-          </div>
-        </div>
-
-        <div className='space-y-5'>
-          <PreviewPanel preview={preview} form={form} />
-          <section className='rounded-lg border border-slate-200 bg-white p-5 shadow-sm'>
-            <div className='mb-3 flex items-center gap-2 font-semibold text-slate-950'>
-              <Info size={18} className='text-sky-600' />
-              How late fee works
-            </div>
-            <p className='text-sm leading-6 text-slate-600'>
-              If a month is unpaid, its outstanding carries forward. The next bill adds previous outstanding plus the current month charge, then applies penalty only after the due date and grace period.
-            </p>
-            <div className='mt-3 flex items-center gap-2 rounded-md bg-slate-50 p-3 text-sm text-slate-600'>
-              <CalendarDays size={16} />
-              Due day {form.due_day || 10}, grace {form.grace_days || 0} day(s).
-            </div>
-          </section>
-        </div>
-      </form>
-    </div>
-  );
+  useEffect(() => { load(); }, []);
+  const saveRules = async (event) => {
+    event.preventDefault(); setBusy(true);
+    try {
+      await saveMaintenanceRule({ ...rules, name: "Society billing rules", billing_frequency: "monthly", due_day: 10, effective_from: today, penalty_rate_period: "monthly", penalty_frequency: "monthly", penalty_method: "simple", penalty_base: "original_eligible_charges", penalty_applies_maintenance: true, penalty_applies_noc: false, max_penalty_enabled: false, max_penalty_amount: null, rounding_mode: "nearest", noc_value: rules.noc_enabled ? rules.noc_value || null : null, penalty_rate_value: rules.late_fee_enabled ? rules.penalty_rate_value || null : null });
+      toast.success("NOC and late-fee settings saved");
+    } catch (error) { toast.error(error.response?.data?.errors?.[0]?.msg || error.response?.data?.message || "Unable to save settings"); }
+    finally { setBusy(false); }
+  };
+  const previewRevision = async (event) => {
+    event.preventDefault(); setBusy(true);
+    try { const response = await previewMaintenanceRevision(revision); setPreview(response.data.data); }
+    catch (error) { toast.error(error.response?.data?.errors?.[0]?.msg || error.response?.data?.message || "Unable to preview revision"); }
+    finally { setBusy(false); }
+  };
+  const applyRevision = async () => {
+    if (!preview || !window.confirm(`Apply this revision to ${preview.affected_flats} flat(s)? Existing bills and receipts will not change.`)) return;
+    setBusy(true);
+    try { await applyMaintenanceRevision(revision); toast.success("Maintenance revision applied"); setPreview(null); setRevision({ name: "", revision_type: "fixed_increase", increase_amount: "", effective_from: today, reason: "", notes: "" }); load(); }
+    catch (error) { toast.error(error.response?.data?.message || "Unable to apply revision"); }
+    finally { setBusy(false); }
+  };
+  return <div className='mx-auto max-w-6xl space-y-5'>
+    <div className='border-b border-slate-200 pb-4'><h2 className='text-2xl font-semibold text-slate-950'>Maintenance Settings</h2><p className='text-sm text-slate-500'>Flat-level maintenance amounts are managed from Flats. Configure NOC, late fees, and future revisions here.</p></div>
+    <form onSubmit={saveRules} className='space-y-5'>
+      <section className='rounded-lg border border-slate-200 bg-white shadow-sm'><div className='flex items-center gap-2 border-b border-slate-200 p-5 font-semibold text-slate-800'><Settings size={18} className='text-sky-600' />NOC Settings</div><div className='grid gap-4 p-5 sm:grid-cols-3'><Field label='NOC'><Dropdown value={rules.noc_enabled} onChange={(value) => setRule("noc_enabled", value)} options={yesNo} /></Field><Field label='Calculation Type'><Dropdown value={rules.noc_calculation_type} onChange={(value) => setRule("noc_calculation_type", value)} options={calculationTypes} disabled={!rules.noc_enabled} /></Field><Field label={rules.noc_calculation_type === "percentage" ? "NOC Rate %" : "Monthly NOC Amount"}><Input type='number' min='0' step='0.01' value={rules.noc_value} disabled={!rules.noc_enabled} onChange={(event) => setRule("noc_value", event.target.value)} /></Field></div></section>
+      <section className='rounded-lg border border-slate-200 bg-white shadow-sm'><div className='border-b border-slate-200 p-5 font-semibold text-slate-800'>Late Fee / Penalty</div><div className='grid gap-4 p-5 sm:grid-cols-2'><Field label='Late Fee'><Dropdown value={rules.late_fee_enabled} onChange={(value) => setRule("late_fee_enabled", value)} options={yesNo} /></Field><Field label='Grace Period (days)'><Input type='number' min='0' value={rules.grace_days} disabled={!rules.late_fee_enabled} onChange={(event) => setRule("grace_days", event.target.value)} /></Field><Field label='Penalty Type'><Dropdown value={rules.penalty_type} onChange={(value) => setRule("penalty_type", value)} options={calculationTypes} disabled={!rules.late_fee_enabled} /></Field><Field label={rules.penalty_type === "percentage" ? "Penalty Rate %" : "Penalty Amount"}><Input type='number' min='0' step='0.01' value={rules.penalty_rate_value} disabled={!rules.late_fee_enabled} onChange={(event) => setRule("penalty_rate_value", event.target.value)} /></Field></div><div className='flex justify-end border-t p-4'><button disabled={busy} className='inline-flex h-10 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-medium text-white disabled:opacity-60'><Save size={16} />Save Settings</button></div></section>
+    </form>
+    <section className='rounded-lg border border-slate-200 bg-white shadow-sm'><div className='flex items-center gap-2 border-b border-slate-200 p-5 font-semibold text-slate-800'><TrendingUp size={18} className='text-sky-600' />Maintenance Revision</div><form onSubmit={previewRevision} className='grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3'><Field label='Revision Name'><Input required value={revision.name} onChange={(event) => setRevisionValue("name", event.target.value)} /></Field><Field label='Revision Type'><Dropdown value={revision.revision_type} onChange={(value) => setRevisionValue("revision_type", value)} options={revisionTypes} /></Field><Field label={revision.revision_type === "per_sqft_increase" ? "Increase per sq. ft." : "Monthly fixed increase"}><Input required type='number' min='0.01' step='0.01' value={revision.increase_amount} onChange={(event) => setRevisionValue("increase_amount", event.target.value)} /></Field><Field label='Effective From'><Input required type='date' value={revision.effective_from} onChange={(event) => setRevisionValue("effective_from", event.target.value)} /></Field><Field label='Reason'><Input required value={revision.reason} onChange={(event) => setRevisionValue("reason", event.target.value)} /></Field><Field label='Notes (optional)'><Input value={revision.notes} onChange={(event) => setRevisionValue("notes", event.target.value)} /></Field><div className='flex items-end'><button disabled={busy} className='h-10 rounded-md border border-slate-300 px-4 text-sm font-medium hover:bg-slate-50 disabled:opacity-60'>Preview Revision</button></div></form>
+      {preview && <div className='border-t p-5'><div className='grid gap-3 sm:grid-cols-4'>{[["Affected Flats", preview.affected_flats], ["Current Total", money(preview.totals.current_monthly)], ["Monthly Increase", money(preview.totals.monthly_increase)], ["Revised Total", money(preview.totals.revised_monthly)]].map(([label, value]) => <div key={label} className='rounded bg-slate-50 p-3'><div className='text-xs font-semibold uppercase text-slate-500'>{label}</div><div className='mt-1 font-semibold'>{value}</div></div>)}</div><div className='mt-4 max-h-52 overflow-auto rounded border'><table className='min-w-full text-sm'><thead className='bg-slate-50'><tr><th className='p-2 text-left'>Flat</th><th className='p-2 text-left'>Current</th><th className='p-2 text-left'>Increase</th><th className='p-2 text-left'>Revised</th></tr></thead><tbody>{preview.flats.map((flat) => <tr key={flat.id} className='border-t'><td className='p-2'>{flat.wing}-{flat.flat_no}</td><td className='p-2'>{money(flat.previous_amount)}</td><td className='p-2'>{money(flat.increase_amount)}</td><td className='p-2'>{money(flat.new_amount)}</td></tr>)}</tbody></table></div><div className='mt-4 flex justify-end'><button type='button' onClick={applyRevision} disabled={busy} className='h-10 rounded-md bg-sky-600 px-4 text-sm font-medium text-white disabled:opacity-60'>Confirm and Apply Revision</button></div></div>}
+    </section>
+    <section className='rounded-lg border border-slate-200 bg-white shadow-sm'><div className='border-b p-5 font-semibold text-slate-800'>Revision History</div><div className='overflow-auto'><table className='min-w-full text-sm'><thead className='bg-slate-50'><tr><th className='p-3 text-left'>Revision</th><th className='p-3 text-left'>Effective</th><th className='p-3 text-left'>Increase</th><th className='p-3 text-left'>Flats</th></tr></thead><tbody>{history.length ? history.map((item) => <tr className='border-t' key={item.id}><td className='p-3'>{item.name}<div className='text-xs text-slate-500'>{item.reason}</div></td><td className='p-3'>{new Date(item.effective_from).toLocaleDateString("en-IN")}</td><td className='p-3'>{money(item.increase_amount)}</td><td className='p-3'>{item.affected_flats}</td></tr>) : <tr><td colSpan='4' className='p-6 text-center text-slate-500'>No maintenance revisions yet.</td></tr>}</tbody></table></div></section>
+  </div>;
 }
-
-export default AddMaintenanceSetting;

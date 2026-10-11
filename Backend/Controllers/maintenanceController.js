@@ -326,7 +326,7 @@ export const saveMaintenanceRule = async (req, res) => {
     penalty_applies_noc = false,
     grace_days,
     max_penalty_enabled = false,
-    max_penalty_amount = 0,
+    max_penalty_amount = null,
     interest_rate_monthly,
     interest_grace_days = 0,
     interest_method = "simple_monthly",
@@ -335,8 +335,15 @@ export const saveMaintenanceRule = async (req, res) => {
     rounding_mode = "nearest",
     effective_from,
   } = req.body;
+  const normalizedMaxPenaltyAmount = max_penalty_enabled ? Number(max_penalty_amount) : null;
+  const normalizedNocValue = noc_enabled ? Number(noc_value) : null;
+  const normalizedPenaltyRateValue = late_fee_enabled
+    ? Number(penalty_rate_value ?? interest_rate_monthly ?? 0)
+    : null;
   const resolvedMonthlyRate =
-    penalty_rate_period === "yearly"
+    !late_fee_enabled
+      ? 0
+      : penalty_rate_period === "yearly"
       ? Number(penalty_rate_value ?? interest_rate_monthly ?? 0) / 12
       : Number(penalty_rate_value ?? interest_rate_monthly ?? 0);
   const resolvedGraceDays = Number(grace_days ?? interest_grace_days ?? 0);
@@ -380,10 +387,10 @@ export const saveMaintenanceRule = async (req, res) => {
         due_day,
         noc_enabled ? 1 : 0,
         noc_calculation_type,
-        noc_value,
+        normalizedNocValue,
         late_fee_enabled ? 1 : 0,
         penalty_type,
-        penalty_rate_value ?? interest_rate_monthly ?? 0,
+        normalizedPenaltyRateValue,
         penalty_rate_period,
         penalty_frequency,
         penalty_method,
@@ -392,7 +399,7 @@ export const saveMaintenanceRule = async (req, res) => {
         penalty_applies_noc ? 1 : 0,
         resolvedGraceDays,
         max_penalty_enabled ? 1 : 0,
-        max_penalty_amount,
+        normalizedMaxPenaltyAmount,
         resolvedMonthlyRate,
         resolvedGraceDays,
         resolvedInterestMethod,
@@ -411,7 +418,7 @@ export const saveMaintenanceRule = async (req, res) => {
         adminId,
         result.insertId,
         previousRule ? JSON.stringify(previousRule) : null,
-        JSON.stringify(req.body),
+        JSON.stringify({ ...req.body, max_penalty_amount: normalizedMaxPenaltyAmount }),
         req.body.reason || null,
       ],
     );
@@ -422,7 +429,7 @@ export const saveMaintenanceRule = async (req, res) => {
       "maintenance_rule",
       result.insertId,
       null,
-      req.body,
+      { ...req.body, max_penalty_amount: normalizedMaxPenaltyAmount },
     );
     await db.commit();
     return res
@@ -467,23 +474,46 @@ export const getMaintenanceRules = async (req, res) => {
 };
 
 export const getMaintenanceRuleHistory = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
   const { societyId } = getScope(req);
   if (ensureAdminSociety(res, societyId)) return;
 
   try {
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 100);
+    const offset = (page - 1) * limit;
+    const ruleId = req.params.id ? Number(req.params.id) : null;
+    const [[count]] = await db.query(
+      `SELECT COUNT(*) AS total
+       FROM maintenance_setting_history
+       WHERE society_id = ? AND (? IS NULL OR rule_id = ?)`,
+      [societyId, ruleId, ruleId],
+    );
     const [rows] = await db.query(
       `SELECT msh.*, a.name AS admin_name
        FROM maintenance_setting_history msh
-       LEFT JOIN admins a ON a.id = msh.admin_id
+       LEFT JOIN admins a ON a.id = msh.admin_id AND a.society_id = msh.society_id
        WHERE msh.society_id = ?
          AND (? IS NULL OR msh.rule_id = ?)
        ORDER BY msh.created_at DESC
-       LIMIT 100`,
-      [societyId, req.params.id || null, req.params.id || null],
+       LIMIT ? OFFSET ?`,
+      [societyId, ruleId, ruleId, limit, offset],
     );
-    return res.status(200).json({ success: true, data: rows });
+    return res.status(200).json({
+      success: true,
+      data: rows,
+      pagination: { page, limit, total: Number(count.total) },
+    });
   } catch (error) {
-    console.error("GET MAINTENANCE RULE HISTORY ERROR:", error);
+    console.error("GET MAINTENANCE RULE HISTORY ERROR:", {
+      societyId,
+      ruleId: req.params.id || null,
+      code: error.code,
+      message: error.message,
+    });
     return res
       .status(500)
       .json({ success: false, message: "Failed to fetch rule history" });
@@ -768,7 +798,9 @@ export const updateMaintenanceBalance = async (req, res) => {
     }
 
     const [[existing]] = await db.query(
-      `SELECT id, maintenance_paid, noc_paid, interest_paid
+      `SELECT id, maintenance_paid, noc_paid, interest_paid, penalty_charge,
+              previous_outstanding, current_charge, penalty_eligibility_date,
+              rule_id, settings_snapshot, due_date, source, total_balance
        FROM maintenance_charges
        WHERE society_id = ? AND flat_id = ? AND period_month = ?
        LIMIT 1`,
@@ -791,11 +823,18 @@ export const updateMaintenanceBalance = async (req, res) => {
       periodMonth,
       maintenanceCharge: outstandingMaintenance + maintenancePaid,
       nocCharge: outstandingNoc + nocPaid,
+      penaltyCharge: Number(existing?.penalty_charge || 0),
       interestAmount: outstandingInterest + interestPaid,
       maintenancePaid,
       nocPaid,
       interestPaid,
-      source: "old_due",
+      dueDate: existing?.due_date || null,
+      previousOutstanding: Number(existing?.previous_outstanding || 0),
+      currentCharge: existing?.current_charge ?? null,
+      penaltyEligibilityDate: existing?.penalty_eligibility_date || null,
+      ruleId: existing?.rule_id || null,
+      settingsSnapshot: existing?.settings_snapshot || null,
+      source: existing?.source || "old_due",
       notes: req.body.remarks || "Balance maintenance update",
     });
 
@@ -808,7 +847,10 @@ export const updateMaintenanceBalance = async (req, res) => {
       periodMonth,
       entryType: "adjustment",
       description: `Balance maintenance updated for ${periodMonth.slice(0, 7)}`,
-      debitAmount: totalDue - maintenancePaid - nocPaid - interestPaid,
+      debitAmount: Math.max(
+        totalDue - maintenancePaid - nocPaid - interestPaid - Number(existing?.total_balance || 0),
+        0,
+      ),
     });
     await audit(
       societyId,

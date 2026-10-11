@@ -104,6 +104,19 @@ export const getPreviousOutstanding = async ({
   return Number(row?.previous_outstanding || 0);
 };
 
+const getApplicableFlatMaintenanceAmount = async ({ connection, societyId, flatId, periodMonth, fallbackAmount }) => {
+  const [rows] = await connection.query(
+    `SELECT maintenance_amount
+     FROM flat_maintenance_amount_history
+     WHERE society_id = ? AND flat_id = ? AND effective_from <= ?
+       AND (effective_to IS NULL OR effective_to >= ?)
+     ORDER BY effective_from DESC, id DESC
+     LIMIT 1`,
+    [societyId, flatId, periodMonth, periodMonth],
+  );
+  return rows.length ? Number(rows[0].maintenance_amount) : Number(fallbackAmount || 0);
+};
+
 export const calculateDueDate = (periodMonth, dueDay = 10) => {
   const period = new Date(periodMonth);
   const lastDay = new Date(period.getFullYear(), period.getMonth() + 1, 0).getDate();
@@ -111,9 +124,8 @@ export const calculateDueDate = (periodMonth, dueDay = 10) => {
   return `${period.getFullYear()}-${String(period.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 };
 
-const calculateNoc = ({ rule, maintenanceAmount, tenantNocCharge, hasTenant }) => {
+const calculateNoc = ({ rule, maintenanceAmount, hasTenant }) => {
   if (!rule.noc_enabled || !hasTenant) return 0;
-  if (Number(tenantNocCharge || 0) > 0) return Number(tenantNocCharge || 0);
   if (rule.noc_calculation_type === "percentage") {
     return fromCents(Math.round((toCents(maintenanceAmount) * rule.noc_value) / 100));
   }
@@ -172,14 +184,16 @@ export const calculateMonthlyBill = async ({
   });
   const dueDate = calculateDueDate(periodMonth, rule.due_day);
   const penaltyEligibilityDate = addDays(dueDate, rule.grace_days + 1);
-  const maintenanceAmount =
-    rule.maintenance_amount > 0
-      ? rule.maintenance_amount
-      : Number(flat.maintenance_amount || 0);
+  const maintenanceAmount = await getApplicableFlatMaintenanceAmount({
+    connection,
+    societyId,
+    flatId: flat.id,
+    periodMonth,
+    fallbackAmount: flat.maintenance_amount,
+  });
   const nocAmount = calculateNoc({
     rule,
     maintenanceAmount,
-    tenantNocCharge: flat.noc_charge,
     hasTenant: Boolean(flat.has_active_tenant),
   });
   const { penalty, base } = calculatePenalty({
